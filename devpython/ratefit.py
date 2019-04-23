@@ -1,10 +1,12 @@
-import numpy as np
-import iminuit as im
-from scipy.stats import poisson
-from astropy.cosmology import Planck15 as cdata
-import matplotlib.pyplot as plt
-plt.style.use('classic')
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
 
+import numpy as np
+from scipy import stats
+from astropy.cosmology import Planck15 as cosmo
+import matplotlib.pyplot   as plt
+
+    
 class RateFit():
     ''' '''
     
@@ -35,10 +37,10 @@ class RateFit():
         ''' Le modèle en question'''
         if usebestfit:
             return self.bestparam['a']*\
-                    cdata.comoving_volume(z).value/self.VOLUME_SCALE
+                    cosmo.comoving_volume(z).value/self.VOLUME_SCALE
         else:
             return self.param['a']*\
-                    cdata.comoving_volume(z).value/self.VOLUME_SCALE
+                    cosmo.comoving_volume(z).value/self.VOLUME_SCALE
         
     def get_missedSN(self, z, usebestfit = False):
         '''Le modèle de décroissance de SNe'''
