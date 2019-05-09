@@ -1,0 +1,14 @@
+
+__pycache__/
+
+Resources/
+
+Save/
+
+variaIa/\.ipynb_checkpoints/
+
+*.un~
+
+notebooks/\.ipynb_checkpoints/
+
+notebooks/Tests\.ipynb

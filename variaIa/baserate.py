@@ -39,7 +39,7 @@ _ = ratefitter.show()
 # FITTER
 #
 
-class RateFitter( BaseFitter ):
+class RateFitter(BaseFitter):
     """ """
     PROPERTIES = ["counts", "redshift_ranges"]
     SIDE_PROPERTIES = ["fitted_flag"]
@@ -88,7 +88,7 @@ class RateFitter( BaseFitter ):
              add_proba=True):
         """ """
         import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=[17,8])
+        fig = plt.figure(figsize=[10,6])
 
         ax = fig.add_axes([0.12, 0.15, 1-0.12*2, 0.75])
         ax.step(self._central_redshiftranges, self.counts, where="mid",\
@@ -147,6 +147,50 @@ class RateFitter( BaseFitter ):
             axt.tick_params(labelsize = 20)
 
         return {"fig":fig, "ax":ax}
+
+    def pshow(self, guess):
+        """ """
+        import matplotlib.pyplot as plt
+        fig = plt.figure(figsize = [10,6])
+
+        num_plots = len(self.redshift_ranges.T)
+
+        colormap = plt.cm.gist_ncar
+        plt.gca().set_prop_cycle(plt.cycler('color',\
+                                            plt.cm.jet(np.linspace(0, 1, num_plots))))
+
+        labels = []
+
+        for i in range(1,num_plots):
+            self.set_fitted_flag(self._central_redshiftranges\
+                               < self._central_redshiftranges[i])
+
+            labels.append('fit on ' + str(i) + ' bins')
+
+            self.fit(a_guess = guess)
+            plt.plot(self._central_redshiftranges[self.fitted_flag],\
+                     self.model.get_cumuprob(self.fitted_counts,\
+                                             self.fitted_redshift_ranges))
+
+        ax = plt.gca()
+        ax.tick_params(axis = 'both',
+                       direction = 'in',
+                       length = 10, width = 3,
+                       labelsize = 20,
+                       which = 'both',
+                       top = True, right = True)
+        plt.xlabel('$z_{max}$', fontsize = 20)
+        plt.ylabel('Poisson cdf', fontsize = 20)
+
+        plt.title('Evolution of poisson cdf with bins used to fit', fontsize = 20)
+
+        plt.legend(labels, ncol=1, loc='upper right', 
+                   #bbox_to_anchor=[0.5, 1.1], 
+                   columnspacing=1.0, labelspacing=0.0,
+                   handletextpad=0.0, handlelength=1.5,
+                   fancybox=True, shadow=True)
+
+        plt.show()
 
     # ================ #
     #  Parameters      #
@@ -342,12 +386,37 @@ class NoMissedModel( BaseObject ):
         """ """
         return 0
 
+#    def _get_missedrate_(self, redshifts):
+#        """ """
+#        return 0
+
+    def get_missedrate(self, redshift_ranges):
+        """ """
+        return 0
+
+class ConstMissedModel( BaseObject ):
+    """ """
+    MISSEDPARAMETERS = ['zmax']
+
+    def get_logprior(self):
+        """ """
+        return 0
+
+    def _get_missedrate_(self, redshifts):
+        """ """
+        flag_up = redshifts > self.parammissed['zmax']
+        missed = np.zeros(len(redshifts))
+
+        missed[flag_up] = 10
+
+        return missed
+
     def get_missedrate(self, redshift_ranges):
         """ """
         # Could use self.paramrate
-        return 0
+        return self._get_missedrate_(redshift_ranges[1])\
 
-class ExpoMissedModel( BaseObject ):
+class ExpoMissedModel( NoMissedModel ):
     """ """
     MISSEDPARAMETERS = ["b", "zmax", "zc"]
 
@@ -373,36 +442,8 @@ class ExpoMissedModel( BaseObject ):
 
     def get_missedrate(self, redshift_ranges):
         """ """
-        # Could use self.paramrate
         return self._get_missedrate_(redshift_ranges[1])\
-             - self._get_missedrate_(redshift_ranges[0])
-
-class ConstMissedModel( BaseObject ):
-    """ """
-    MISSEDPARAMETERS = ['zmax']
-
-   # #boundaries
-   # b_boundaries = [0,None]
-   # zmax_boundaries = [0,None]
-   # zc_boundaries = [1e-5,None]
-
-    def get_logprior(self):
-        """ """
-        return 0
-
-    def _get_missedrate_(self, redshifts):
-        """ """
-        flag_up = redshifts > self.parammissed['zmax']
-        missed = np.zeros(len(redshifts))
-
-        missed[flag_up] = 10
-
-        return missed
-
-    def get_missedrate(self, redshift_ranges):
-        """ """
-        # Could use self.paramrate
-        return self._get_missedrate_(redshift_ranges[1])\
+#             - self._get_missedrate_(redshift_ranges[0])
 
 # ==================== #
 #                      #
