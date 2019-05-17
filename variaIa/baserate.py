@@ -243,45 +243,72 @@ class RateFitter(BaseFitter):
 #   SHOW P-VALUE       #
 #                      #
 # ==================== #
-    
+
+#            plt.subplot(211)
+#            plt.plot(x[i][k], y[i][k], 'o', z_intp, p_zintp[i][k], '--')
+#    
+#    ax = plt.gca()
+#    ax.tick_params(axis = 'both',
+#                   direction = 'in',
+#                   length = 10, width = 3,
+#                   labelsize = 20,
+#                   which = 'both',
+#                   top = True, right = True)
+#    plt.xlabel('$z$', fontsize = 20)
+#    plt.ylabel('Poisson cdf', fontsize = 20)
+#
+#    plt.title('Evolution of poisson cdf', fontsize = 20)
     
 def pshow_r_SNLS(rawdata, guess, loops):
     """ """
-    global x, y, nb_bins_r
-    
     import matplotlib.pyplot as plt
-    fig = plt.figure(figsize = [10,6])
-    
-    ndata = rawdata[np.where(rawdata[np.where(rawdata>0.3)]<0.8)]
-    dl = len(ndata)
-    
-    nbase_r = BaseRateModel()
-    nrate_r = RateFitter()
-    
-    x = []
-    y = []
-    nb_bins_r = []
-    
-    for i in range(loops):
-        ndata_r_a = np.random.randint(0,10)
-        ndata_r_b = np.random.randint(dl-10,dl+1)
-        ndata_r = ndata[ndata_r_a:ndata_r_b+1]
-        nb_bins_r.append(np.random.randint(5,13))
-        nbord_r = np.asarray(np.histogram(ndata_r, bins = nb_bins_r[i])[1])
-        nbins_r = np.asarray([[nbord_r[i],nbord_r[i+1]] for i in range(len(nbord_r)-1)]).T
-        ncounts_r = np.histogram(ndata_r, nbord_r)[0]
+    import math
+    from scipy import interpolate
+    fig = plt.figure(figsize = [10,12])
 
-        nrate_r.set_data(ncounts_r, nbins_r)
-        nrate_r.set_model(nbase_r)
-        #ratefitter.set_fitted_flag(ratefitter._central_redshiftranges < 0.7)
-        nrate_r.fit(a_guess = guess)
+    base_r = BaseRateModel()
+    rate_r = RateFitter()
+
+    x = [[] for i in range(loops)]
+    y = [[] for i in range(loops)]
+    p_zintp = [[] for i in range(loops)]
+
+    for i in range(loops):
+        data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,\
+                                     math.floor(rawdata[0]*100))/100
+        data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,\
+                                    (math.ceil(rawdata[-1]*10)\
+                                   + math.floor(rawdata[0]*10)/2)*10)/100
+        data_r = np.append(data_r_a,np.append(rawdata,data_r_b))
+        nb_bins_r = np.random.randint(5,13)
+        nb_fits_per_dist = 4
+        bord_r = np.asarray(np.histogram(data_r, bins = nb_bins_r)[1])
+        bins_r = np.asarray([[bord_r[i],bord_r[i+1]] for i in range(len(bord_r)-1)]).T
+        counts_r = np.histogram(data_r, bord_r)[0]
         
-        x.append(nrate_r._central_redshiftranges)
-        y.append(nrate_r.model.get_cumuprob(nrate_r.counts,\
-                                            nrate_r.redshift_ranges))
+        rate_r.set_data(counts_r, bins_r)
+        rate_r.set_model(base_r)
         
-        plt.plot(x[i],y[i])
-                  
+        for k in range(nb_fits_per_dist):
+            rate_r.set_fitted_flag(rate_r._central_redshiftranges\
+                                 < rate_r._central_redshiftranges\
+                                   [np.random.randint(1,nb_bins_r)])
+            rate_r.fit(a_guess = guess)
+
+            x[i].append(rate_r._central_redshiftranges)
+            y[i].append(rate_r.model.get_cumuprob(rate_r.counts,\
+                                                   rate_r.redshift_ranges))
+            z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
+            p_zintp[i].append(interpolate.interp1d(\
+                              x[i][k], y[i][k], kind='linear')(z_intp))
+    
+    plt.subplot(211)
+    
+    p_mean = np.mean(np.mean(p_zintp, axis = 1), axis = 0)
+    p_std = np.std(np.std(p_zintp, axis = 1), axis = 0)
+    plt.plot(z_intp, p_mean, '-')
+    plt.fill_between(z_intp, p_mean-p_std,p_mean+p_std,alpha = 0.5)
+    
     ax = plt.gca()
     ax.tick_params(axis = 'both',
                    direction = 'in',
@@ -289,12 +316,32 @@ def pshow_r_SNLS(rawdata, guess, loops):
                    labelsize = 20,
                    which = 'both',
                    top = True, right = True)
-    plt.xlabel('$z_{max}$', fontsize = 20)
+    plt.xlabel('$z$', fontsize = 20)
     plt.ylabel('Poisson cdf', fontsize = 20)
 
-    plt.title('Evolution of poisson cdf with bins used to fit', fontsize = 20)
+    plt.title('Evolution of poisson cdf with mean', fontsize = 20)
+  
+    plt.subplot(212)
 
-    plt.show()
+    p_med = np.median(np.median(p_zintp, axis = 1), axis = 0)
+    plt.plot(z_intp, p_med, '-')
+    plt.fill_between(z_intp, p_med-p_std, p_med+p_std,alpha = 0.5)
+
+    ax = plt.gca()
+    ax.tick_params(axis = 'both',
+                   direction = 'in',
+                   length = 10, width = 3,
+                   labelsize = 20,
+                   which = 'both',
+                   top = True, right = True)
+    plt.xlabel('$z$', fontsize = 20)
+    plt.ylabel('Poisson cdf', fontsize = 20)
+
+    plt.title('Evolution of poisson cdf with median', fontsize = 20)
+    
+    plt.subplots_adjust(hspace = 0.3)
+    
+    plt.show()    
     
 #
 # MODEL
