@@ -191,7 +191,7 @@ class RateFitter(BaseFitter):
                    fancybox=True, shadow=True)
 
         plt.show()
-
+                     
     # ================ #
     #  Parameters      #
     # ================ #
@@ -237,7 +237,65 @@ class RateFitter(BaseFitter):
             self._derived_properties["fitted_redshift_ranges"] =\
             self.redshift_ranges
         return self._derived_properties["fitted_redshift_ranges"]
+    
+# ==================== #
+#                      #
+#   SHOW P-VALUE       #
+#                      #
+# ==================== #
+    
+    
+def pshow_r_SNLS(rawdata, guess, loops):
+    """ """
+    global x, y, nb_bins_r
+    
+    import matplotlib.pyplot as plt
+    fig = plt.figure(figsize = [10,6])
+    
+    ndata = rawdata[np.where(rawdata[np.where(rawdata>0.3)]<0.8)]
+    dl = len(ndata)
+    
+    nbase_r = BaseRateModel()
+    nrate_r = RateFitter()
+    
+    x = []
+    y = []
+    nb_bins_r = []
+    
+    for i in range(loops):
+        ndata_r_a = np.random.randint(0,10)
+        ndata_r_b = np.random.randint(dl-10,dl+1)
+        ndata_r = ndata[ndata_r_a:ndata_r_b+1]
+        nb_bins_r.append(np.random.randint(5,13))
+        nbord_r = np.asarray(np.histogram(ndata_r, bins = nb_bins_r[i])[1])
+        nbins_r = np.asarray([[nbord_r[i],nbord_r[i+1]] for i in range(len(nbord_r)-1)]).T
+        ncounts_r = np.histogram(ndata_r, nbord_r)[0]
 
+        nrate_r.set_data(ncounts_r, nbins_r)
+        nrate_r.set_model(nbase_r)
+        #ratefitter.set_fitted_flag(ratefitter._central_redshiftranges < 0.7)
+        nrate_r.fit(a_guess = guess)
+        
+        x.append(nrate_r._central_redshiftranges)
+        y.append(nrate_r.model.get_cumuprob(nrate_r.counts,\
+                                            nrate_r.redshift_ranges))
+        
+        plt.plot(x[i],y[i])
+                  
+    ax = plt.gca()
+    ax.tick_params(axis = 'both',
+                   direction = 'in',
+                   length = 10, width = 3,
+                   labelsize = 20,
+                   which = 'both',
+                   top = True, right = True)
+    plt.xlabel('$z_{max}$', fontsize = 20)
+    plt.ylabel('Poisson cdf', fontsize = 20)
+
+    plt.title('Evolution of poisson cdf with bins used to fit', fontsize = 20)
+
+    plt.show()
+    
 #
 # MODEL
 #
@@ -336,6 +394,8 @@ class _RateModelStructure_( BaseModel ):
         """ """
         return len(self.MISSEDPARAMETERS)
 
+
+    
 # ==================== #
 #                      #
 #  RATE MODELS         #
@@ -459,3 +519,4 @@ class ExpoRateModel(ExpoMissedModel,VolumeRateModel,_RateModelStructure_):
     """ """
 class ConstRateModel(ConstMissedModel,VolumeRateModel,_RateModelStructure_):
     """ """
+

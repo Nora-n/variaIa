@@ -12,3 +12,11 @@ variaIa/\.ipynb_checkpoints/
 notebooks/\.ipynb_checkpoints/
 
 notebooks/Tests\.ipynb
+
+*.js
+
+node_modules/core-js/
+
+package-lock\.json
+
+*.swp
