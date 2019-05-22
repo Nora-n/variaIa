@@ -69,129 +69,129 @@ class RateFitter(BaseFitter):
     def set_fitted_flag(self, fitted_flag):
         """ """
         if len(fitted_flag) != self.ndata:
-            raise ValueError(\
-       "Size of the data (%d) do not match that of the given fitted_flag (%d)"\
-            %(self.ndata,len(fitted_flag)))
+            raise ValueError(
+                "Size of the data (%d) do not match that of the given fitted_flag (%d)"
+                % (self.ndata, len(fitted_flag)))
 
         self._side_properties["fitted_flag"] =\
-                              fitted_flag
+            fitted_flag
         self._derived_properties["fitted_counts"] =\
-                                 self.counts[self.fitted_flag]
+            self.counts[self.fitted_flag]
         self._derived_properties["fitted_redshift_ranges"] =\
-                                 self.redshift_ranges.T[self.fitted_flag].T
+            self.redshift_ranges.T[self.fitted_flag].T
 
     # --------- #
     #  PLOTTER  #
     # --------- #
 
-    def show(self, datacolor="C0", modelcolor="C1", stepalpha=0.2,\
+    def show(self, datacolor="C0", modelcolor="C1", stepalpha=0.2,
              add_proba=True):
         """ """
         import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=[10,6])
+        fig = plt.figure(figsize=[10, 6])
 
         ax = fig.add_axes([0.12, 0.15, 1-0.12*2, 0.75])
-        ax.step(self._central_redshiftranges, self.counts, where="mid",\
+        ax.step(self._central_redshiftranges, self.counts, where="mid",
                 alpha=stepalpha)
 
         if self.fitted_flag is not None and not np.all(self.fitted_flag):
             prop = dict(marker="o", facecolors="None", edgecolors=datacolor)
 
-            ax.scatter(self._central_redshiftranges[~self.fitted_flag],\
+            ax.scatter(self._central_redshiftranges[~self.fitted_flag],
                        self.counts[~self.fitted_flag], **prop)
 
             prop["edgecolors"] = modelcolor
 
-            ax.scatter(self._central_redshiftranges[~self.fitted_flag],\
-                       self.get_model(self.redshift_ranges.T\
-                                      [~self.fitted_flag].T),**prop)
+            ax.scatter(self._central_redshiftranges[~self.fitted_flag],
+                       self.get_model(self.redshift_ranges.T
+                                      [~self.fitted_flag].T), **prop)
 
         prop = dict(marker="o")
 
-        ax.scatter(self._central_redshiftranges[self.fitted_flag],\
+        ax.scatter(self._central_redshiftranges[self.fitted_flag],
                    self.fitted_counts, c=datacolor, **prop)
-        ax.scatter(self._central_redshiftranges[self.fitted_flag],\
-                   self.get_model(self.fitted_redshift_ranges),c=modelcolor,\
+        ax.scatter(self._central_redshiftranges[self.fitted_flag],
+                   self.get_model(self.fitted_redshift_ranges), c=modelcolor,
                    **prop)
 
         ax.set_ylim(0)
-        ax.set_ylabel("counts", fontsize = 20)
-        ax.set_xlabel("redshift", fontsize = 20)
+        ax.set_ylabel("counts", fontsize=20)
+        ax.set_xlabel("redshift", fontsize=20)
 
-        ax.tick_params(axis = 'both',
-                       direction = 'in',
-                       length = 10, width = 3,
-                       labelsize = 20,
-                       which = 'both',
-                       top = True, right = True)
+        ax.tick_params(axis='both',
+                       direction='in',
+                       length=10, width=3,
+                       labelsize=20,
+                       which='both',
+                       top=True, right=True)
 
         if add_proba:
             axt = ax.twinx()
             if self.fitted_flag is not None and not np.all(self.fitted_flag):
 
                 axt.plot(self._central_redshiftranges[self.fitted_flag],
-                         self.model.get_cumuprob(self.fitted_counts,\
+                         self.model.get_cumuprob(self.fitted_counts,
                                                  self.fitted_redshift_ranges),
-                         color="0.5",ls="-")
-                axt.plot(self._central_redshiftranges,\
-                         self.model.get_cumuprob(self.counts,\
+                         color="0.5", ls="-")
+                axt.plot(self._central_redshiftranges,
+                         self.model.get_cumuprob(self.counts,
                                                  self.redshift_ranges),
-                         color="0.5",ls="--")
+                         color="0.5", ls="--")
             else:
                 axt.plot(self._central_redshiftranges,
-                         self.model.get_cumuprob(self.counts,\
+                         self.model.get_cumuprob(self.counts,
                                                  self.redshift_ranges),
-                         color="0.5",ls="-")
+                         color="0.5", ls="-")
 
-            axt.set_ylabel("Poisson cdf", fontsize = 20)
-            axt.tick_params(labelsize = 20)
+            axt.set_ylabel("Poisson cdf", fontsize=20)
+            axt.tick_params(labelsize=20)
 
-        return {"fig":fig, "ax":ax}
+        return {"fig": fig, "ax": ax}
 
     def pshow(self, guess):
         """ """
         import matplotlib.pyplot as plt
-        fig = plt.figure(figsize = [10,6])
+        fig = plt.figure(figsize=[10, 6])
 
         num_plots = len(self.redshift_ranges.T)
 
         colormap = plt.cm.gist_ncar
-        plt.gca().set_prop_cycle(plt.cycler('color',\
+        plt.gca().set_prop_cycle(plt.cycler('color',
                                             plt.cm.jet(np.linspace(0, 1, num_plots))))
 
         labels = []
 
-        for i in range(1,num_plots):
-            self.set_fitted_flag(self._central_redshiftranges\
-                               < self._central_redshiftranges[i])
+        for i in range(1, num_plots):
+            self.set_fitted_flag(self._central_redshiftranges
+                                 < self._central_redshiftranges[i])
 
             labels.append('fit on ' + str(i) + ' bins')
 
-            self.fit(a_guess = guess)
-            plt.plot(self._central_redshiftranges[self.fitted_flag],\
-                     self.model.get_cumuprob(self.fitted_counts,\
+            self.fit(a_guess=guess)
+            plt.plot(self._central_redshiftranges[self.fitted_flag],
+                     self.model.get_cumuprob(self.fitted_counts,
                                              self.fitted_redshift_ranges))
 
         ax = plt.gca()
-        ax.tick_params(axis = 'both',
-                       direction = 'in',
-                       length = 10, width = 3,
-                       labelsize = 20,
-                       which = 'both',
-                       top = True, right = True)
-        plt.xlabel('$z_{max}$', fontsize = 20)
-        plt.ylabel('Poisson cdf', fontsize = 20)
+        ax.tick_params(axis='both',
+                       direction='in',
+                       length=10, width=3,
+                       labelsize=20,
+                       which='both',
+                       top=True, right=True)
+        plt.xlabel('$z_{max}$', fontsize=20)
+        plt.ylabel('Poisson cdf', fontsize=20)
 
-        plt.title('Evolution of poisson cdf with bins used to fit', fontsize = 20)
+        plt.title('Evolution of poisson cdf with bins used to fit', fontsize=20)
 
-        plt.legend(labels, ncol=1, loc='upper right', 
-                   #bbox_to_anchor=[0.5, 1.1], 
+        plt.legend(labels, ncol=1, loc='upper right',
+                   #bbox_to_anchor=[0.5, 1.1],
                    columnspacing=1.0, labelspacing=0.0,
                    handletextpad=0.0, handlelength=1.5,
                    fancybox=True, shadow=True)
 
         plt.show()
-                     
+
     # ================ #
     #  Parameters      #
     # ================ #
@@ -235,9 +235,9 @@ class RateFitter(BaseFitter):
         """ """
         if self._derived_properties["fitted_redshift_ranges"] is None:
             self._derived_properties["fitted_redshift_ranges"] =\
-            self.redshift_ranges
+                self.redshift_ranges
         return self._derived_properties["fitted_redshift_ranges"]
-    
+
 # ==================== #
 #                      #
 #   SHOW P-VALUE       #
@@ -246,7 +246,7 @@ class RateFitter(BaseFitter):
 
 #            plt.subplot(211)
 #            plt.plot(x[i][k], y[i][k], 'o', z_intp, p_zintp[i][k], '--')
-#    
+#
 #    ax = plt.gca()
 #    ax.tick_params(axis = 'both',
 #                   direction = 'in',
@@ -258,19 +258,20 @@ class RateFitter(BaseFitter):
 #    plt.ylabel('Poisson cdf', fontsize = 20)
 #
 #    plt.title('Evolution of poisson cdf', fontsize = 20)
-    
+
+
 def pshow_r(survey, rawdata, guess, loops):
     """ """
     import matplotlib.pyplot as plt
     import math
     from scipy import interpolate
-    
+
     colors = {'SDSS': 'lime',
               'SNLS': 'red',
               'PS1': 'blue',
-              'HST': 'purple'} 
-    
-    fig = plt.figure(figsize = [10,12])
+              'HST': 'purple'}
+
+    plt.figure(figsize=[10, 12])
 
     base_r = BaseRateModel()
     rate_r = RateFitter()
@@ -279,138 +280,143 @@ def pshow_r(survey, rawdata, guess, loops):
     y = [[] for i in range(loops)]
     p_zintp = [[] for i in range(loops)]
 
-    if survey == 'SNLS': 
+    if survey == 'SNLS':
         for i in range(loops):
-            data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,\
+            data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,
                                          math.floor(rawdata[0]*100))/100
-            data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,\
-                                        (math.ceil(rawdata[-1]*10)\
-                                       + math.floor(rawdata[0]*10)/2)*10)/100
-            data_r = np.append(data_r_a,np.append(rawdata,data_r_b))
-            nb_bins_r = np.random.randint(5,13)
+            data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,
+                                         (math.ceil(rawdata[-1]*10)
+                                        + math.floor(rawdata[0]*10)/2)*10)/100
+            data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
+            nb_bins_r = np.random.randint(5, 13)
             nb_fits_per_dist = 4
-            bord_r = np.asarray(np.histogram(data_r, bins = nb_bins_r)[1])
-            bins_r = np.asarray([[bord_r[i],bord_r[i+1]] for i in range(len(bord_r)-1)]).T
+            bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r)[1])
+            bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
+                                 for i in range(len(bord_r)-1)]).T
             counts_r = np.histogram(data_r, bord_r)[0]
 
             rate_r.set_data(counts_r, bins_r)
             rate_r.set_model(base_r)
 
             for k in range(nb_fits_per_dist):
-                rate_r.set_fitted_flag(rate_r._central_redshiftranges\
-                                     < rate_r._central_redshiftranges\
-                                       [np.random.randint(1,nb_bins_r)])
-                rate_r.fit(a_guess = guess)
+                rate_r.set_fitted_flag(rate_r._central_redshiftranges
+                                       < rate_r._central_redshiftranges
+                                       [np.random.randint(1, nb_bins_r)])
+                rate_r.fit(a_guess=guess)
 
                 x[i].append(rate_r._central_redshiftranges)
-                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,\
-                                                       rate_r.redshift_ranges))
+                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
+                                                      rate_r.redshift_ranges))
                 z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
-                p_zintp[i].append(interpolate.interp1d(\
+                p_zintp[i].append(interpolate.interp1d(
                                   x[i][k], y[i][k], kind='linear')(z_intp))
     else:
         for i in range(loops):
-            data_r_a = np.random.randint(math.floor(rawdata[0]*1000)/2,\
+            data_r_a = np.random.randint(math.floor(rawdata[0]*1000)/2,
                                          math.floor(rawdata[0]*1000))/1000
-            data_r_b = np.random.randint(math.ceil(rawdata[-1]*100)*10,\
-                                        (math.ceil(rawdata[-1]*100)\
-                                       + math.floor(rawdata[0]*100)/2)*10)/1000
-            data_r = np.append(data_r_a,np.append(rawdata,data_r_b))
-            nb_bins_r = np.random.randint(5,13)
+            data_r_b = np.random.randint(math.ceil(rawdata[-1]*100)*10,
+                                         (math.ceil(rawdata[-1]*100)
+                                        + math.floor(rawdata[0]*100)/2)*10)/1000
+            data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
+            nb_bins_r = np.random.randint(5, 13)
             nb_fits_per_dist = 4
-            bord_r = np.asarray(np.histogram(data_r, bins = nb_bins_r)[1])
-            bins_r = np.asarray([[bord_r[i],bord_r[i+1]] for i in range(len(bord_r)-1)]).T
+            bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r)[1])
+            bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
+                                 for i in range(len(bord_r)-1)]).T
             counts_r = np.histogram(data_r, bord_r)[0]
 
             rate_r.set_data(counts_r, bins_r)
             rate_r.set_model(base_r)
 
             for k in range(nb_fits_per_dist):
-                rate_r.set_fitted_flag(rate_r._central_redshiftranges\
-                                     < rate_r._central_redshiftranges\
-                                       [np.random.randint(1,nb_bins_r)])
-                rate_r.fit(a_guess = guess)
+                rate_r.set_fitted_flag(rate_r._central_redshiftranges
+                                       < rate_r._central_redshiftranges
+                                       [np.random.randint(1, nb_bins_r)])
+                rate_r.fit(a_guess=guess)
 
                 x[i].append(rate_r._central_redshiftranges)
-                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,\
-                                                       rate_r.redshift_ranges))
+                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
+                                                      rate_r.redshift_ranges))
                 z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
-                p_zintp[i].append(interpolate.interp1d(\
+                p_zintp[i].append(interpolate.interp1d(
                                   x[i][k], y[i][k], kind='linear')(z_intp))
 
-    plt.subplot(211)
-    
-    p_mean = np.mean(np.mean(p_zintp, axis = 1), axis = 0)
-    p_std = np.std(np.std(p_zintp, axis = 1), axis = 0)
-    plt.plot(z_intp, p_mean, '-', color = colors[survey])
-    plt.fill_between(z_intp, p_mean - p_std, p_mean + p_std,\
-                     color = colors[survey], alpha = 0.5)
-    
+#    plt.subplot(211)
+#
+#    p_mean = np.mean(np.mean(p_zintp, axis=1), axis=0)
+#    p_std = np.std(np.std(p_zintp, axis=1), axis=0)
+#    plt.plot(z_intp, p_mean, '-', color=colors[survey])
+#    plt.fill_between(z_intp, p_mean - p_std, p_mean + p_std,
+#                     color=colors[survey], alpha=0.5)
+#
+#    ax = plt.gca()
+#    ax.tick_params(axis='both',
+#                   direction='in',
+#                   length=10, width=3,
+#                   labelsize=20,
+#                   which='both',
+#                   top=True, right=True)
+#    plt.xlabel('$z$', fontsize=20)
+#    plt.ylabel('Poisson cdf', fontsize=20)
+#
+#    plt.title('Evolution of poisson cdf with mean for ' +
+#              str(survey), fontsize=20)
+#
+#    plt.subplot(212)
+
+    p_med = np.median(np.median(p_zintp, axis=1), axis=0)
+    plt.plot(z_intp, p_med, '-', color=colors[survey])
+    plt.fill_between(z_intp, p_med - p_std, p_med + p_std,
+                     color=colors[survey], alpha=0.5)
+
     ax = plt.gca()
-    ax.tick_params(axis = 'both',
-                   direction = 'in',
-                   length = 10, width = 3,
-                   labelsize = 20,
-                   which = 'both',
-                   top = True, right = True)
-    plt.xlabel('$z$', fontsize = 20)
-    plt.ylabel('Poisson cdf', fontsize = 20)
+    ax.tick_params(axis='both',
+                   direction='in',
+                   length=10, width=3,
+                   labelsize=20,
+                   which='both',
+                   top=True, right=True)
+    plt.xlabel('$z$', fontsize=20)
+    plt.ylabel('Poisson cdf', fontsize=20)
 
-    plt.title('Evolution of poisson cdf with mean for ' + str(survey), fontsize = 20)
-  
-    plt.subplot(212)
+    plt.title('Evolution of poisson cdf with median for ' +
+              str(survey), fontsize=20)
 
-    p_med = np.median(np.median(p_zintp, axis = 1), axis = 0)
-    plt.plot(z_intp, p_med, '-', color = colors[survey])
-    plt.fill_between(z_intp, p_med - p_std, p_med + p_std,\
-                     color = colors[survey], alpha = 0.5)
+#    plt.subplots_adjust(hspace=0.3)
 
-    ax = plt.gca()
-    ax.tick_params(axis = 'both',
-                   direction = 'in',
-                   length = 10, width = 3,
-                   labelsize = 20,
-                   which = 'both',
-                   top = True, right = True)
-    plt.xlabel('$z$', fontsize = 20)
-    plt.ylabel('Poisson cdf', fontsize = 20)
-
-    plt.title('Evolution of poisson cdf with median for ' + str(survey), fontsize = 20)
-    
-    plt.subplots_adjust(hspace = 0.3)
-    
-    plt.show()    
+    plt.show()
 
 #
 # MODEL
 #
 
-class _RateModelStructure_( BaseModel ):
+
+class _RateModelStructure_(BaseModel):
     """ """
-    VOLUME_SCALE     = 1e8
-    RATEPARAMETERS   = []
+    VOLUME_SCALE = 1e8
+    RATEPARAMETERS = []
     MISSEDPARAMETERS = []
 
-    def __new__(cls,*arg,**kwarg):
+    def __new__(cls, *arg, **kwarg):
         """ Black Magic allowing generalization of Polynomial models """
         cls.FREEPARAMETERS = cls.RATEPARAMETERS + cls.MISSEDPARAMETERS
-        return super(_RateModelStructure_,cls).__new__(cls)
+        return super(_RateModelStructure_, cls).__new__(cls)
 
     def setup(self, parameters):
         """ """
-        if self.nmissedparameters>0:
-            self.paramrate   = {k:v for k,v in\
-                                zip(self.RATEPARAMETERS,\
-                                parameters[:self.nrateparameters])}
-            self.parammissed = {k:v for k,v in\
-                                zip(self.MISSEDPARAMETERS,\
-                                parameters[self.nrateparameters:])}
+        if self.nmissedparameters > 0:
+            self.paramrate = {k: v for k, v in
+                              zip(self.RATEPARAMETERS,
+                                  parameters[:self.nrateparameters])}
+            self.parammissed = {k: v for k, v in
+                                zip(self.MISSEDPARAMETERS,
+                                    parameters[self.nrateparameters:])}
 
-        elif self.nrateparameters==1:
-            self.paramrate   = {self.RATEPARAMETERS[0]: parameters}
+        elif self.nrateparameters == 1:
+            self.paramrate = {self.RATEPARAMETERS[0]: parameters}
 
         else:
-            self.paramrate   = {k:v for k,v in zip(self.RATEPARAMETERS,\
+            self.paramrate = {k: v for k, v in zip(self.RATEPARAMETERS,
                                                    parameters)}
 
     # --------- #
@@ -424,26 +430,28 @@ class _RateModelStructure_( BaseModel ):
     #  Nature - Missed
     def get_expectedrate(self, redshift_ranges):
         """ """
-        return self.get_rate( redshift_ranges )\
-             - self.get_missedrate( redshift_ranges )
+        return self.get_rate(redshift_ranges)\
+            - self.get_missedrate(redshift_ranges)
 
     def get_rate(self, redshift_ranges):
         """ """
         # Could use self.paramrate
         raise\
-        NotImplementedError("Your RateModel class must define `get_rate()` ")
+            NotImplementedError(
+                "Your RateModel class must define `get_rate()` ")
 
     def get_missedrate(self, redshift_ranges):
         """ """
         # Could use self.missedrate
         raise\
-    NotImplementedError("Your RateModel class must define `get_missedrate()` ")
+            NotImplementedError(
+                "Your RateModel class must define `get_missedrate()` ")
 
     # ----------- #
     # Likelihood  #
     # ----------- #
 
-    def get_logprob(self, *args ):
+    def get_logprob(self, *args):
         """ """
         return self.get_loglikelihood(*args) + self.get_logpriors()
 
@@ -451,19 +459,19 @@ class _RateModelStructure_( BaseModel ):
         """ """
         return 0
 
-    def get_loglikelihood(self, counts, redshift_ranges ):
+    def get_loglikelihood(self, counts, redshift_ranges):
         """ """
         # poisson.pmf(k, mu) = probability to observe k counts\
-                             # given that we expect mu
-        return np.sum(np.log(self.get_probabilities(counts,redshift_ranges)))
+        # given that we expect mu
+        return np.sum(np.log(self.get_probabilities(counts, redshift_ranges)))
 
     def get_probabilities(self, counts, redshift_ranges):
         """ Returns the poisson statistics applied to each cases """
-        return stats.poisson.pmf(counts,self.get_expectedrate(redshift_ranges))
+        return stats.poisson.pmf(counts, self.get_expectedrate(redshift_ranges))
 
     def get_cumuprob(self, counts, redshift_ranges):
         """ Returns the cumulative poisson statistics """
-        return stats.poisson.cdf(counts,self.get_expectedrate(redshift_ranges))
+        return stats.poisson.cdf(counts, self.get_expectedrate(redshift_ranges))
 
     # ================= #
     #  Properties       #
@@ -480,19 +488,18 @@ class _RateModelStructure_( BaseModel ):
         return len(self.MISSEDPARAMETERS)
 
 
-    
 # ==================== #
 #                      #
 #  RATE MODELS         #
 #                      #
 # ==================== #
 
-class VolumeRateModel( BaseObject ):
+class VolumeRateModel(BaseObject):
     """ """
     RATEPARAMETERS = ["a"]
 
     # boundaries
-    a_boundaries = [0,None]
+    a_boundaries = [0, None]
 
     def get_logprior(self):
         """ """
@@ -500,22 +507,23 @@ class VolumeRateModel( BaseObject ):
 
     def _get_rate_(self, redshifts):
         """ """
-        return self.paramrate['a']*\
-               cosmo.comoving_volume(redshifts).value/self.VOLUME_SCALE
+        return self.paramrate['a'] *\
+            cosmo.comoving_volume(redshifts).value/self.VOLUME_SCALE
 
     def get_rate(self, redshift_ranges):
         """ """
         # Could use self.paramrate
         return self._get_rate_(redshift_ranges[1])\
-             - self._get_rate_(redshift_ranges[0])
+            - self._get_rate_(redshift_ranges[0])
 
 
-class PerrettRateModel( VolumeRateModel ):
+class PerrettRateModel(VolumeRateModel):
     """ """
     RATEPARAMETERS = ["a"]
+
     def _get_rate_(self, redshifts):
         """ See eq. 6 of https://arxiv.org/pdf/1811.02379.pdf """
-        return self.paramrate['a']* (1.75 *1e-5* (1+redshifts)**2.11 )
+        return self.paramrate['a'] * (1.75 * 1e-5 * (1+redshifts)**2.11)
 
 # ==================== #
 #                      #
@@ -523,7 +531,8 @@ class PerrettRateModel( VolumeRateModel ):
 #                      #
 # ==================== #
 
-class NoMissedModel( BaseObject ):
+
+class NoMissedModel(BaseObject):
     """ """
     MISSEDPARAMETERS = []
 
@@ -539,7 +548,8 @@ class NoMissedModel( BaseObject ):
         """ """
         return 0
 
-class ConstMissedModel( BaseObject ):
+
+class ConstMissedModel(BaseObject):
     """ """
     MISSEDPARAMETERS = ['zmax']
 
@@ -561,14 +571,16 @@ class ConstMissedModel( BaseObject ):
         # Could use self.paramrate
         return self._get_missedrate_(redshift_ranges[1])\
 
-class ExpoMissedModel( NoMissedModel ):
+
+
+class ExpoMissedModel(NoMissedModel):
     """ """
     MISSEDPARAMETERS = ["b", "zmax", "zc"]
 
-    #boundaries
-    b_boundaries = [0,None]
-    zmax_boundaries = [0,None]
-    zc_boundaries = [1e-5,None]
+    # boundaries
+    b_boundaries = [0, None]
+    zmax_boundaries = [0, None]
+    zc_boundaries = [1e-5, None]
 
     def get_logprior(self):
         """ """
@@ -580,15 +592,15 @@ class ExpoMissedModel( NoMissedModel ):
         missed = np.zeros(len(redshifts))
 
         missed[flag_up] = \
-        self.parammissed['b']/self.VOLUME_SCALE\
-      * np.exp(redshifts[flag_up]/self.parammissed['zc'])
+            self.parammissed['b']/self.VOLUME_SCALE\
+            * np.exp(redshifts[flag_up]/self.parammissed['zc'])
 
         return missed
 
     def get_missedrate(self, redshift_ranges):
         """ """
         return self._get_missedrate_(redshift_ranges[1])\
-#             - self._get_missedrate_(redshift_ranges[0])
+            #             - self._get_missedrate_(redshift_ranges[0])
 
 # ==================== #
 #                      #
@@ -596,12 +608,18 @@ class ExpoMissedModel( NoMissedModel ):
 #                      #
 # ==================== #
 
-class BaseRateModel(NoMissedModel,VolumeRateModel,_RateModelStructure_):
-    """ """
-class PerrettRateModel(NoMissedModel,PerrettRateModel,_RateModelStructure_):
-    """ """
-class ExpoRateModel(ExpoMissedModel,VolumeRateModel,_RateModelStructure_):
-    """ """
-class ConstRateModel(ConstMissedModel,VolumeRateModel,_RateModelStructure_):
+
+class BaseRateModel(NoMissedModel, VolumeRateModel, _RateModelStructure_):
     """ """
 
+
+class PerrettRateModel(NoMissedModel, PerrettRateModel, _RateModelStructure_):
+    """ """
+
+
+class ExpoRateModel(ExpoMissedModel, VolumeRateModel, _RateModelStructure_):
+    """ """
+
+
+class ConstRateModel(ConstMissedModel, VolumeRateModel, _RateModelStructure_):
+    """ """
