@@ -259,11 +259,17 @@ class RateFitter(BaseFitter):
 #
 #    plt.title('Evolution of poisson cdf', fontsize = 20)
     
-def pshow_r_SNLS(rawdata, guess, loops):
+def pshow_r(survey, rawdata, guess, loops):
     """ """
     import matplotlib.pyplot as plt
     import math
     from scipy import interpolate
+    
+    colors = {'SDSS': 'lime',
+              'SNLS': 'red',
+              'PS1': 'blue',
+              'HST': 'purple'} 
+    
     fig = plt.figure(figsize = [10,12])
 
     base_r = BaseRateModel()
@@ -273,41 +279,72 @@ def pshow_r_SNLS(rawdata, guess, loops):
     y = [[] for i in range(loops)]
     p_zintp = [[] for i in range(loops)]
 
-    for i in range(loops):
-        data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,\
-                                     math.floor(rawdata[0]*100))/100
-        data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,\
-                                    (math.ceil(rawdata[-1]*10)\
-                                   + math.floor(rawdata[0]*10)/2)*10)/100
-        data_r = np.append(data_r_a,np.append(rawdata,data_r_b))
-        nb_bins_r = np.random.randint(5,13)
-        nb_fits_per_dist = 4
-        bord_r = np.asarray(np.histogram(data_r, bins = nb_bins_r)[1])
-        bins_r = np.asarray([[bord_r[i],bord_r[i+1]] for i in range(len(bord_r)-1)]).T
-        counts_r = np.histogram(data_r, bord_r)[0]
-        
-        rate_r.set_data(counts_r, bins_r)
-        rate_r.set_model(base_r)
-        
-        for k in range(nb_fits_per_dist):
-            rate_r.set_fitted_flag(rate_r._central_redshiftranges\
-                                 < rate_r._central_redshiftranges\
-                                   [np.random.randint(1,nb_bins_r)])
-            rate_r.fit(a_guess = guess)
+    if survey == 'SNLS': 
+        for i in range(loops):
+            data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,\
+                                         math.floor(rawdata[0]*100))/100
+            data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,\
+                                        (math.ceil(rawdata[-1]*10)\
+                                       + math.floor(rawdata[0]*10)/2)*10)/100
+            data_r = np.append(data_r_a,np.append(rawdata,data_r_b))
+            nb_bins_r = np.random.randint(5,13)
+            nb_fits_per_dist = 4
+            bord_r = np.asarray(np.histogram(data_r, bins = nb_bins_r)[1])
+            bins_r = np.asarray([[bord_r[i],bord_r[i+1]] for i in range(len(bord_r)-1)]).T
+            counts_r = np.histogram(data_r, bord_r)[0]
 
-            x[i].append(rate_r._central_redshiftranges)
-            y[i].append(rate_r.model.get_cumuprob(rate_r.counts,\
-                                                   rate_r.redshift_ranges))
-            z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
-            p_zintp[i].append(interpolate.interp1d(\
-                              x[i][k], y[i][k], kind='linear')(z_intp))
-    
+            rate_r.set_data(counts_r, bins_r)
+            rate_r.set_model(base_r)
+
+            for k in range(nb_fits_per_dist):
+                rate_r.set_fitted_flag(rate_r._central_redshiftranges\
+                                     < rate_r._central_redshiftranges\
+                                       [np.random.randint(1,nb_bins_r)])
+                rate_r.fit(a_guess = guess)
+
+                x[i].append(rate_r._central_redshiftranges)
+                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,\
+                                                       rate_r.redshift_ranges))
+                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
+                p_zintp[i].append(interpolate.interp1d(\
+                                  x[i][k], y[i][k], kind='linear')(z_intp))
+    else:
+        for i in range(loops):
+            data_r_a = np.random.randint(math.floor(rawdata[0]*1000)/2,\
+                                         math.floor(rawdata[0]*1000))/1000
+            data_r_b = np.random.randint(math.ceil(rawdata[-1]*100)*10,\
+                                        (math.ceil(rawdata[-1]*100)\
+                                       + math.floor(rawdata[0]*100)/2)*10)/1000
+            data_r = np.append(data_r_a,np.append(rawdata,data_r_b))
+            nb_bins_r = np.random.randint(5,13)
+            nb_fits_per_dist = 4
+            bord_r = np.asarray(np.histogram(data_r, bins = nb_bins_r)[1])
+            bins_r = np.asarray([[bord_r[i],bord_r[i+1]] for i in range(len(bord_r)-1)]).T
+            counts_r = np.histogram(data_r, bord_r)[0]
+
+            rate_r.set_data(counts_r, bins_r)
+            rate_r.set_model(base_r)
+
+            for k in range(nb_fits_per_dist):
+                rate_r.set_fitted_flag(rate_r._central_redshiftranges\
+                                     < rate_r._central_redshiftranges\
+                                       [np.random.randint(1,nb_bins_r)])
+                rate_r.fit(a_guess = guess)
+
+                x[i].append(rate_r._central_redshiftranges)
+                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,\
+                                                       rate_r.redshift_ranges))
+                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
+                p_zintp[i].append(interpolate.interp1d(\
+                                  x[i][k], y[i][k], kind='linear')(z_intp))
+
     plt.subplot(211)
     
     p_mean = np.mean(np.mean(p_zintp, axis = 1), axis = 0)
     p_std = np.std(np.std(p_zintp, axis = 1), axis = 0)
-    plt.plot(z_intp, p_mean, '-')
-    plt.fill_between(z_intp, p_mean-p_std,p_mean+p_std,alpha = 0.5)
+    plt.plot(z_intp, p_mean, '-', color = colors[survey])
+    plt.fill_between(z_intp, p_mean - p_std, p_mean + p_std,\
+                     color = colors[survey], alpha = 0.5)
     
     ax = plt.gca()
     ax.tick_params(axis = 'both',
@@ -319,13 +356,14 @@ def pshow_r_SNLS(rawdata, guess, loops):
     plt.xlabel('$z$', fontsize = 20)
     plt.ylabel('Poisson cdf', fontsize = 20)
 
-    plt.title('Evolution of poisson cdf with mean', fontsize = 20)
+    plt.title('Evolution of poisson cdf with mean for ' + str(survey), fontsize = 20)
   
     plt.subplot(212)
 
     p_med = np.median(np.median(p_zintp, axis = 1), axis = 0)
-    plt.plot(z_intp, p_med, '-')
-    plt.fill_between(z_intp, p_med-p_std, p_med+p_std,alpha = 0.5)
+    plt.plot(z_intp, p_med, '-', color = colors[survey])
+    plt.fill_between(z_intp, p_med - p_std, p_med + p_std,\
+                     color = colors[survey], alpha = 0.5)
 
     ax = plt.gca()
     ax.tick_params(axis = 'both',
@@ -337,12 +375,12 @@ def pshow_r_SNLS(rawdata, guess, loops):
     plt.xlabel('$z$', fontsize = 20)
     plt.ylabel('Poisson cdf', fontsize = 20)
 
-    plt.title('Evolution of poisson cdf with median', fontsize = 20)
+    plt.title('Evolution of poisson cdf with median for ' + str(survey), fontsize = 20)
     
     plt.subplots_adjust(hspace = 0.3)
     
     plt.show()    
-    
+
 #
 # MODEL
 #
