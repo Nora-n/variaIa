@@ -269,7 +269,8 @@ def pshow_r(survey, rawdata, guess, loops):
     colors = {'SDSS': 'lime',
               'SNLS': 'red',
               'PS1': 'blue',
-              'HST': 'purple'}
+              'HST': 'purple',
+              'SNF': 'orange'}
 
     plt.figure(figsize=[10, 12])
 
@@ -365,6 +366,7 @@ def pshow_r(survey, rawdata, guess, loops):
 #    plt.subplot(212)
 
     p_med = np.median(np.median(p_zintp, axis=1), axis=0)
+    p_std = np.std(np.std(p_zintp, axis=1), axis=0)
     plt.plot(z_intp, p_med, '-', color=colors[survey])
     plt.fill_between(z_intp, p_med - p_std, p_med + p_std,
                      color=colors[survey], alpha=0.5)
