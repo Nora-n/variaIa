@@ -2,50 +2,51 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from scipy import stats
+from scipy.stats import poisson
 from astropy.cosmology import Planck15 as cosmo
-import matplotlib.pyplot   as plt
+import matplotlib.pyplot as plt
+import iminuit as im
 
 
 class RateFit():
     ''' '''
 
-    FREEPARAMETERS = ['a','b','zmax','zc']
+    FREEPARAMETERS = ['a', 'b', 'zmax', 'zc']
     VOLUME_SCALE = 1e8
 
-    ################################### SETTER ###################################
+    ################################### SETTER ################################
 
     def set_data(self, datap, bins):
         '''Donne la liste du nombre observé de SNe par bin'''
         self.rawdata = np.sort(datap)
         self.bins = np.asarray(bins)
-        self.bord = np.append(bins[:,0],bins[-1,1])
+        self.bord = np.append(bins[:, 0], bins[-1, 1])
         self.data, _ = np.histogram(self.rawdata, self.bord)
 
-    def set_param(self, param, isbestfit = False):
+    def set_param(self, param, isbestfit=False):
         '''Créé le dico des noms des params et de leurs valeurs'''
         if isbestfit:
-            self.bestparam = {k: v for k,v in zip(self.FREEPARAMETERS,
-                                              np.atleast_1d(param))}
+            self.bestparam = {k: v for k, v in zip(self.FREEPARAMETERS,
+                                                   np.atleast_1d(param))}
         else:
-            self.param = {k: v for k,v in zip(self.FREEPARAMETERS,
-                                                  np.atleast_1d(param))}
+            self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
+                                               np.atleast_1d(param))}
 
-    ################################### FITTER ###################################
+    ################################### FITTER ################################
 
-    def get_ratemodel(self, z, usebestfit = False):
+    def get_ratemodel(self, z, usebestfit=False):
         ''' Le modèle en question'''
         if usebestfit:
-            return self.bestparam['a']*\
+            return self.bestparam['a'] * \
                     cosmo.comoving_volume(z).value/self.VOLUME_SCALE
         else:
-            return self.param['a']*\
+            return self.param['a'] * \
                     cosmo.comoving_volume(z).value/self.VOLUME_SCALE
 
-    def get_missedSN(self, z, usebestfit = False):
+    def get_missedSN(self, z, usebestfit=False):
         '''Le modèle de décroissance de SNe'''
-        return np.append(np.zeros(len(z[np.where(z<self.param['zmax'])])),\
-                         self.param['b']*\
+        return np.append(np.zeros(len(z[np.where(z < self.param['zmax'])])),\
+                         self.param['b'] *\
                          np.exp(z[np.where(z>self.param['zmax'])]/self.param['zc'])\
                         /self.VOLUME_SCALE)
 
@@ -57,9 +58,6 @@ class RateFit():
                self.get_ratemodel(self.bins[:,0]) -\
                self.get_missedSN(self.bins[:,1]) +\
                self.get_missedSN(self.bins[:,0])
-
-
-
 
     def get_loglikelihood(self, param=None):
         '''Donne le likelihood sur la totalité des données'''
@@ -88,10 +86,10 @@ class RateFit():
     def minimize(self, param_guess):
         '''Renvoie la meilleure valeur des paramètres'''
         self.m = im.Minuit(self.get_logproba, param = param_guess,
-                      print_level=0, pedantic = False,
-                      use_array_call=True,
-                      forced_parameters="param")
-                      #limit_param=[0,None])
+                           print_level=0, pedantic=False,
+                           use_array_call=True,
+                           forced_parameters="param")
+                           #limit_param=[0,None])
         self.m.migrad();
         self.set_param([self.m.values['a'], self.m.values['b'], \
                         self.m.values['zmax'], self.m.values['zc']], True)
