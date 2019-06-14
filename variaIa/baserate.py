@@ -272,7 +272,7 @@ def pshow_r(survey, rawdata, guess, loops):
               'HST': 'purple',
               'SNF': 'orange'}
 
-    plt.figure(figsize=[10, 12])
+    plt.figure(figsize=[10, 5])
 
     base_r = BaseRateModel()
     rate_r = RateFitter()
