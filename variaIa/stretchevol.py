@@ -1,127 +1,292 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import numpy as np
 import scipy
-import matplotlib.pyplot as plt
+import numpy as np
 import iminuit as im
+import matplotlib.pyplot as plt
+plt.style.use('classic')
+
+lssfr_med = -10.8
+
+'''USAGE :
+names = {'lssfr_name':       'lssfr',
+         'stretch_name':     'salt2.X1',
+         'stretch_err_name': 'salt2.X1.err',
+         'lssfr_err_d_name': 'lssfr.err_down',
+         'lssfr_err_u_name': 'lssfr.err_up'}lssfr_err_u_name]
+
+evol = stretchevol.Evol()
+evol.set_names(names)
+evol.set_data(pandas)
+
+evol.minimize(mu_y_guess, sigma_y_guess, mu_o_guess, sigma_o_guess)
+
+evol.plt_scatter()
+'''
 
 
-class Evol(lssfr_med, stretch_name, stretch_err_name, lssfr_name):
+class EvolSimple():
     ''' '''
 
     FREEPARAMETERS = ['mu_y', 'sigma_y', 'mu_o', 'sigma_o']
 
-    ################################### SETTER ################################
+#   ################################# SETTER ##################################
+
+    def set_names(self, names):
+        '''Permet les extractions sur les pandas
+        names = {'lssfr_name':       'lssfr',
+                 'stretch_name':     'salt2.X1',
+                 'stretch_err_name': 'salt2.X1.err',
+                 'lssfr_err_d_name': 'lssfr.err_down',
+                 'lssfr_err_u_name': 'lssfr.err_up'}'''
+        self.names = names
 
     def set_data(self, pandas):
         '''Donne les pandas des stretch young & old'''
-        self.pandas_y = pandas.loc[pandas['lssfr_name'] > lssfr_med]
-        self.pandas_o = pandas.loc[pandas['lssfr_name'] < lssfr_med]
-        self.stretch_y_err = self.pandas_y['stretch_err_name']
-        self.stretch_o_err = self.pandas_o['stretch_err_name']
-        self.stretch_y = self.pandas_y['stretch_name']
-        self.stretch_o = self.pandas_o['stretch_name']
-        self.lssfr_y = self.pandas_y['lssfr_name']
-        self.lssfr_o = self.pandas_o['lssfr_name']
+        self.pandas_y = pandas.loc[pandas[self.names['lssfr_name']] > lssfr_med]
+        self.pandas_o = pandas.loc[pandas[self.names['lssfr_name']] < lssfr_med]
+        self.stretch_y_err = self.pandas_y[self.names['stretch_err_name']]
+        self.stretch_o_err = self.pandas_o[self.names['stretch_err_name']]
+        self.stretch_y = self.pandas_y[self.names['stretch_name']]
+        self.stretch_o = self.pandas_o[self.names['stretch_name']]
+        self.lssfr_y = self.pandas_y[self.names['lssfr_name']]
+        self.lssfr_o = self.pandas_o[self.names['lssfr_name']]
+
+        self.stretch = pandas[self.names['stretch_name']]
+        self.stretch_err = pandas[self.names['stretch_err_name']]
+        self.lssfr = pandas[self.names['lssfr_name']]
+        self.lssfr_err_d = pandas[self.names['lssfr_err_d_name']]
+        self.lssfr_err_u = pandas[self.names['lssfr_err_u_name']]
+
+        self.floor = np.floor(np.min(self.stretch)-0.4)
+        self.ceil = np.ceil(np.max(self.stretch)+0.4)
 
     def set_param(self, param):
         self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
                                            np.atleast_1d(param))}
 
-
-    ################################### FITTER ################################
+#   ################################## FITTER #################################
 
     def distro(self, x, dx, mu, sigma):
         '''Le modèle de distribution'''
         return scipy.stats.norm.pdf(x, mu, scale=np.sqrt(dx**2+sigma**2))
 
-    def min_distro_y(self, mu, sigma):
+    def min_distro_y(self, mu_y, sigma_y):
         '''La fonction à minimiser pour young'''
         return -2*np.sum(np.log(self.distro(self.stretch_y, self.stretch_y_err,
-                                            mu, sigma)))
+                                            mu_y, sigma_y)))
 
-    def min_distro_o(self, mu, sigma):
+    def min_distro_o(self, mu_o, sigma_o):
         '''La fonction à minimiser pour old'''
         return -2*np.sum(np.log(self.distro(self.stretch_o, self.stretch_o_err,
-                                            mu, sigma)))
+                                            mu_o, sigma_o)))
 
-    def minimize(self, param_guess):
+    def minimize(self, mu_y_guess=False, sigma_y_guess=False,
+                 mu_o_guess=False, sigma_o_guess=False):
         '''Renvoie la meilleure valeur des paramètres'''
-        self.m = im.Minuit(self.get_logproba, param = param_guess,
-                           print_level=0, pedantic=False,
-                           use_array_call=True,
-                           forced_parameters="param")
-                           #limit_param=[0,None])
-        self.m.migrad();
-        self.set_param([self.m.values['a'], self.m.values['b'], \
-                        self.m.values['zmax'], self.m.values['zc']], True)
+        self.m_y = im.Minuit(self.min_distro_y, mu_y=mu_y_guess,
+                             sigma_y=sigma_y_guess,
+                             print_level=0, pedantic=False)
 
+        self.m_o = im.Minuit(self.min_distro_o, mu_o=mu_o_guess,
+                             sigma_o=sigma_o_guess,
+                             print_level=0, pedantic=False)
 
-    def minimize(self):
-        '''Actual minimization'''
-        m_y = im.Minuit(self.min_distro_y, mu=0, sigma=1,
-                        print_level=0, pedantic=False)
-        m_o = im.Minuit(self.min_distro_o, mu=0, sigma=1,
-                        print_level=0, pedantic=False)
+        self.m_y.migrad()
+        self.m_o.migrad()
 
-        m_y.migrad()
-        m_o.migrad()
+        self.set_param([self.m_y.values['mu_y'], self.m_y.values['sigma_y'],
+                        self.m_o.values['mu_o'], self.m_o.values['sigma_o']])
 
-        self.params['mu_y'] = m_y.values['mu']
+#   ################################# PLOTTER #################################
 
-    ################################### PLOTTER ##################################
+    def plt_scatter(self):
+        '''Trace le nuage de points et les fits'''
+        plt.scatter(self.lssfr_y,
+                    self.stretch_y,
+                    marker='o', s=20,
+                    color='purple', label='young PG')
+        plt.scatter(self.lssfr_o,
+                    self.stretch_o,
+                    marker='o', s=20,
+                    color='orange', label='old PG')
 
-    def plt_data(self,c,l):
-        '''Trace l\'histogramme des data binées'''
-        plt.figure(figsize = (17,6))
-        plt.hist(self.rawdata, bins = self.bord, color = c, label = l, histtype = 'step')
+        plt.errorbar(self.lssfr,
+                     self.stretch,
+                     xerr=[self.lssfr_err_d, self.lssfr_err_u],
+                     yerr=self.stretch_err,
+                     ecolor='gray', alpha=.3,
+                     ls='none', label=None)
+
+        plt.plot([lssfr_med, lssfr_med],
+                 [self.floor, self.ceil],
+                 color='b', alpha=.5, linewidth=2.0)
+
+        x_linspace = np.linspace(self.floor, self.ceil, 1000)
+
+        plt.plot(self.distro(x_linspace, 0, self.param['mu_y'],
+                             self.param['sigma_y'])+lssfr_med,
+                 x_linspace,
+                 color='r', label='gaussian young')
+        plt.plot(-self.distro(x_linspace, 0, self.param['mu_o'],
+                              self.param['sigma_o'])+lssfr_med,
+                 x_linspace,
+                 color='g', label='gaussian old')
 
         ax = plt.gca()
-        ax.tick_params(axis = 'both',
-                       direction = 'in',
-                       length = 10, width = 3,
-                       labelsize = 20,
-                       which = 'both',
-                       top = True, right = True)
-        plt.xlabel('z', fontsize = 20)
-        plt.ylabel('# of SNeIa', fontsize = 20)
-        plt.title('Data for ' + str(len(self.bins)) + ' bins and zmax = ' + str(self.rawdata[-1]), fontsize = 20)
-        plt.legend()
 
-    def plt_data_fit(self,c,l):
-        '''Trace l\'histogramme des data binées, le fit et les nombres de SNe'''
-        plt.figure(figsize = (17,6))
-        plt.hist(self.rawdata, bins = self.bord, color = c, label = l, histtype = 'step')
+        ax.tick_params(axis='both',
+                       direction='in',
+                       length=10, width=3,
+                       labelsize=20,
+                       which='both',
+                       top=True, right=True)
+        ax.set_ylim([self.floor, self.ceil])
+        plt.xlabel('$LsSFR$', fontsize=20)
+        plt.ylabel('$x_1$', fontsize=20)
+
+        plt.legend(ncol=1, loc='upper left',
+                   columnspacing=1.0, labelspacing=0.0,
+                   handletextpad=0.0, handlelength=1.5,
+                   fancybox=True, shadow=True)
+
+        plt.title('Evolution of $x_1$ on $LsSFR$', fontsize=20)
+
+        plt.show()
+
+
+class EvolDouble():
+    ''' '''
+
+    FREEPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+
+#   ################################# SETTER ##################################
+
+    def set_names(self, names):
+        '''Permet les extractions sur les pandas
+        names = {'lssfr_name':       'lssfr',
+                 'stretch_name':     'salt2.X1',
+                 'stretch_err_name': 'salt2.X1.err',
+                 'lssfr_err_d_name': 'lssfr.err_down',
+                 'lssfr_err_u_name': 'lssfr.err_up',
+                 'py_name':          'p(prompt)'}'''
+        self.names = names
+
+    def set_data(self, pandas):
+        '''Donne les pandas des stretch, lssfr, et Py '''
+        self.py = pandas[self.names['py_name']]
+
+        self.stretch = pandas[self.names['stretch_name']]
+        self.stretch_err = pandas[self.names['stretch_err_name']]
+
+        self.lssfr = pandas[self.names['lssfr_name']]
+        self.lssfr_err_d = pandas[self.names['lssfr_err_d_name']]
+        self.lssfr_err_u = pandas[self.names['lssfr_err_u_name']]
+
+        self.floor = np.floor(np.min(self.stretch)-0.4)
+        self.ceil = np.ceil(np.max(self.stretch)+0.4)
+
+    def set_param(self, param):
+        self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
+                                           np.atleast_1d(param))}
+
+#   ################################## FITTER #################################
+
+    def distro(self, x, dx, mu, sigma):
+        '''Le modèle de distribution'''
+        return scipy.stats.norm.pdf(x, mu, scale=np.sqrt(dx**2+sigma**2))
+
+    def likelihood_y(self, x, dx, mu_1, sigma_1):
+        '''La fonction décrivant le modèle des SNe jeunes'''
+        return self.distro(x, dx, mu_1, sigma_1)
+ 
+    def likelihood_o(self, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return a*self.distro(x, dx, mu_1, sigma_1) \
+         + (1-a)*self.distro(x, dx, mu_2, sigma_2)
+ 
+    def likelihood_tot(self, py, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return py*self.likelihood_y(x, dx, mu_1, sigma_1) \
+         + (1-py)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2, sigma_2)
+ 
+    def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.py, self.stretch,
+                                                    self.stretch_err,
+                                                    a, mu_1, sigma_1,
+                                                    mu_2, sigma_2)))
+ 
+    def minimize(self, a_guess=False,
+                 mu_1_guess=False, sigma_1_guess=False,
+                 mu_2_guess=False, sigma_2_guess=False):
+        '''Renvoie la meilleure valeur des paramètres'''
+        self.m_tot = im.Minuit(self.loglikelihood,
+                               a=a_guess, limit_a=(-0, 1),
+                               mu_1=mu_1_guess, sigma_1=sigma_1_guess,
+                               mu_2=mu_2_guess, sigma_2=sigma_2_guess,
+                               print_level=0, pedantic=False)
+
+        self.m_tot.migrad()
+
+        self.set_param([self.m_tot.values['a'], self.m_tot.values['mu_1'],
+                        self.m_tot.values['sigma_1'], self.m_tot.values['mu_2'],
+                        self.m_tot.values['sigma_2']])
+
+#   ################################# PLOTTER #################################
+
+    def plt_scatter(self):
+        '''Trace le nuage de points et les fits'''
+        dgmap = plt.cm.get_cmap('viridis')
+        dg_colors = [dgmap(i) for i in (1-self.py)]
+
+        plt.scatter(self.lssfr, self.stretch, marker='o', s=20,
+                    color=dg_colors, label='young PG')
+
+        plt.errorbar(self.lssfr, self.stretch,
+                     xerr=[self.lssfr_err_d, self.lssfr_err_u],
+                     yerr=self.stretch_err,
+                     ecolor='gray',
+                     alpha=.3,
+                     ls='none')
+
+        plt.plot([lssfr_med, lssfr_med],
+                 [self.floor, self.ceil],
+                 color='b', alpha=.5, linewidth=2.0)
+
+        x_linspace = np.linspace(self.floor, self.ceil, 3000)
+
+        plt.plot(3*self.likelihood_y(x_linspace, 0, self.param['mu_1'],
+                                     self.param['sigma_1'])+lssfr_med,
+                 x_linspace,
+                 color='r', label='gaussian young')
+        plt.plot(-3*self.likelihood_o(x_linspace, 0, self.param['a'],
+                                      self.param['mu_1'], self.param['sigma_1'],
+                                      self.param['mu_2'], self.param['sigma_2'])
+                                      + lssfr_med,
+                 x_linspace,
+                 color='g', label='gaussian old')
 
         ax = plt.gca()
-        lim = ax.axis()
-        ax.tick_params(axis = 'both',
-                      direction = 'in',
-                      length = 10, width = 3,
-                      labelsize = 20,
-                      which = 'both',
-                      top = True, right = True)
-        lnspc = np.linspace(lim[0], lim[1], len(self.rawdata))
-        ax.plot(lnspc, self.get_ratemodel(lnspc, usebestfit = True), label='fit', color = c)
 
-        centers = [self.bins[i][0] + np.diff(self.bins[i])/2 for i in range(len(self.bins))]
+        ax.tick_params(axis='both',
+                       direction='in',
+                       length=10, width=3,
+                       labelsize=20,
+                       which='both',
+                       top=True, right=True)
 
-        ax.scatter(centers, self.data,
-                   s = 80, c = c, edgecolors = 'face',
-                   alpha = .8, label = 'data')
+        ax.set_ylim([self.floor, self.ceil])
 
-        ax.errorbar(centers, self.data,
-                    yerr = np.sqrt(self.data),
-                    marker = 'None', ls = 'None',
-                    ecolor = "0.7")
+        plt.xlabel('$LsSFR$', fontsize=20)
+        plt.ylabel('$x_1$', fontsize=20)
 
-        ax.scatter(centers, self.get_nbSN(), marker = '+', s = 80)
+        plt.legend(ncol=1, loc='upper left',
+                   columnspacing=1.0, labelspacing=0.0,
+                   handletextpad=0.0, handlelength=1.5,
+                   fancybox=True, shadow=True)
 
-        ax.axis(lim)
+        plt.title('Evolution of $x_1$ on $LsSFR$', fontsize=20)
 
-        plt.xlabel('z', fontsize = 20)
-        plt.ylabel('# of SNeIa', fontsize = 20)
-        plt.title('Fit for ' + str(len(self.bins)) + ' bins and zmax = ' + str(self.rawdata[-1]), fontsize = 20)
-
-        plt.legend()
+        plt.show()
