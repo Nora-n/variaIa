@@ -165,46 +165,23 @@ class EvolSimple():
 #   ###########################################################################
 
 
-class EvolDouble():
+class EvolDouble(EvolSimple):
     ''' '''
 
     FREEPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
 
 #   ################################# SETTER ##################################
 
-    def set_names(self, names):
-        '''Permet les extractions sur les pandas
-        names = {'lssfr_name':       'lssfr',
-                 'stretch_name':     'salt2.X1',
-                 'stretch_err_name': 'salt2.X1.err',
-                 'lssfr_err_d_name': 'lssfr.err_down',
-                 'lssfr_err_u_name': 'lssfr.err_up',
-                 'py_name':          'p(prompt)'}'''
-        self.names = names
-
     def set_data(self, pandas):
         '''Donne les pandas des stretch, lssfr, et Py '''
+        super().set_data(pandas)
         self.py = pandas[self.names['py_name']]
-
-        self.stretch = pandas[self.names['stretch_name']]
-        self.stretch_err = pandas[self.names['stretch_err_name']]
-
-        self.lssfr = pandas[self.names['lssfr_name']]
-        self.lssfr_err_d = pandas[self.names['lssfr_err_d_name']]
-        self.lssfr_err_u = pandas[self.names['lssfr_err_u_name']]
-
-        self.floor = np.floor(np.min(self.stretch)-0.4)
-        self.ceil = np.ceil(np.max(self.stretch)+0.4)
 
     def set_param(self, param):
         self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
                                            np.atleast_1d(param))}
 
 #   ################################## FITTER #################################
-
-    def gauss(self, x, dx, mu, sigma):
-        '''Le modèle de distribution'''
-        return scipy.stats.norm.pdf(x, mu, scale=np.sqrt(dx**2+sigma**2))
 
     def likelihood_y(self, x, dx, mu_1, sigma_1):
         '''La fonction décrivant le modèle des SNe jeunes'''
@@ -245,36 +222,50 @@ class EvolDouble():
 
 #   ################################# PLOTTER #################################
 
-    def plt_scatter(self):
+    def plt_scatter(self, model=True):
         '''Trace le nuage de points et les fits'''
         dgmap = plt.cm.get_cmap('viridis')
         dg_colors = [dgmap(i) for i in (1-self.py)]
 
-        plt.scatter(self.lssfr, self.stretch, marker='o', s=60,
-                    color=dg_colors, label='SNe data')
+        plt.scatter(self.lssfr, self.stretch, marker='o',
+                    s=100, linewidths=0.5,
+                    facecolors=dg_colors, edgecolors="0.7",
+                    label='SNe data', zorder=8)
 
         plt.errorbar(self.lssfr, self.stretch,
                      xerr=[self.lssfr_err_d, self.lssfr_err_u],
                      yerr=self.stretch_err,
-                     ecolor='gray', alpha=.3,
-                     ls='none', label=None)
+                     ecolor='0.7', alpha=1, ms=0,
+                     ls='none', label=None, zorder=5)
 
-        plt.plot([lssfr_med, lssfr_med],
-                 [self.floor, self.ceil],
-                 color='b', alpha=.5, linewidth=2.0)
+        plt.axvline(-10.82,
+                    color='0.7', alpha=.5, linewidth=2.0)
 
         x_linspace = np.linspace(self.floor, self.ceil, 3000)
 
-        plt.plot(self.likelihood_y(x_linspace, 0, self.param['mu_1'],
-                                   self.param['sigma_1'])+lssfr_med,
-                 x_linspace,
-                 color='r', label='gaussian young')
-        plt.plot(-self.likelihood_o(x_linspace, 0, self.param['a'],
-                                    self.param['mu_1'], self.param['sigma_1'],
-                                    self.param['mu_2'], self.param['sigma_2'])
-                                    + lssfr_med,
-                 x_linspace,
-                 color='g', label='gaussian old')
+        if model is True:
+            plt.fill_betweenx(x_linspace,
+                              2*self.likelihood_y(x_linspace, 0,
+                                                  self.param['mu_1'],
+                                                  self.param['sigma_1'])
+                              + lssfr_med,
+                              lssfr_med,
+                              facecolor=plt.cm.viridis(0.05, 0.1),
+                              edgecolor=plt.cm.viridis(0.05, 0.8),
+                              lw=2, label='model young')
+
+            plt.fill_betweenx(x_linspace,
+                              -3*self.likelihood_o(x_linspace, 0,
+                                                   self.param['a'],
+                                                   self.param['mu_1'],
+                                                   self.param['sigma_1'],
+                                                   self.param['mu_2'],
+                                                   self.param['sigma_2'])
+                              + lssfr_med,
+                              lssfr_med,
+                              facecolor=plt.cm.viridis(0.95, 0.1),
+                              edgecolor=plt.cm.viridis(0.95, 0.8),
+                              lw=2, label='model old')
 
         ax = plt.gca()
 
@@ -290,14 +281,9 @@ class EvolDouble():
         plt.xlabel('$LsSFR$', fontsize=20)
         plt.ylabel('$x_1$', fontsize=20)
 
-        plt.legend(ncol=1, loc='upper left',
-                   columnspacing=1.0, labelspacing=0.0,
-                   handletextpad=0.0, handlelength=1.5,
-                   fancybox=True, shadow=True)
+        plt.legend(ncol=1, loc='upper left')
 
-        plt.title('Evolution of $x_1$ on $LsSFR$', fontsize=20)
-
-        plt.show()
+        plt.xlim(-14.5, -8.5)
 
 
 #   ###########################################################################

@@ -4,6 +4,10 @@
 import numpy as np
 from scipy import stats
 from astropy.cosmology import Planck15 as cosmo
+from modefit.baseobjects import BaseModel, BaseFitter, DataHandler, BaseObject
+import matplotlib.pyplot as plt
+plt.style.use(['classic', 'seaborn-white'])
+
 
 """
 The code will be divided between
@@ -15,9 +19,6 @@ Info:
 - Modefit.BaseFitter is minimizing
 `-2*self.model.get_logprob(*self._get_model_args_)`
 """
-
-from modefit.baseobjects import BaseModel, BaseFitter, DataHandler, BaseObject
-
 
 """
 USAGE:
@@ -87,7 +88,6 @@ class RateFitter(BaseFitter):
     def show(self, datacolor="C0", modelcolor="C1", stepalpha=0.2,
              add_proba=True):
         """ """
-        import matplotlib.pyplot as plt
         fig = plt.figure(figsize=[10, 6])
 
         ax = fig.add_axes([0.12, 0.15, 1-0.12*2, 0.75])
@@ -150,14 +150,14 @@ class RateFitter(BaseFitter):
 
     def pshow(self, guess):
         """ """
-        import matplotlib.pyplot as plt
         fig = plt.figure(figsize=[10, 6])
 
         num_plots = len(self.redshift_ranges.T)
 
-        colormap = plt.cm.gist_ncar
+#        colormap = plt.cm.gist_ncar
         plt.gca().set_prop_cycle(plt.cycler('color',
-                                            plt.cm.jet(np.linspace(0, 1, num_plots))))
+                                            plt.cm.jet(np.linspace(0, 1,
+                                                       num_plots))))
 
         labels = []
 
@@ -182,10 +182,10 @@ class RateFitter(BaseFitter):
         plt.xlabel('$z_{max}$', fontsize=20)
         plt.ylabel('Poisson cdf', fontsize=20)
 
-        plt.title('Evolution of poisson cdf with bins used to fit', fontsize=20)
+        plt.title('Evolution of poisson cdf with bins used to fit',
+                  fontsize=20)
 
         plt.legend(labels, ncol=1, loc='upper right',
-                   #bbox_to_anchor=[0.5, 1.1],
                    columnspacing=1.0, labelspacing=0.0,
                    handletextpad=0.0, handlelength=1.5,
                    fancybox=True, shadow=True)
@@ -244,25 +244,9 @@ class RateFitter(BaseFitter):
 #                      #
 # ==================== #
 
-#            plt.subplot(211)
-#            plt.plot(x[i][k], y[i][k], 'o', z_intp, p_zintp[i][k], '--')
-#
-#    ax = plt.gca()
-#    ax.tick_params(axis = 'both',
-#                   direction = 'in',
-#                   length = 10, width = 3,
-#                   labelsize = 20,
-#                   which = 'both',
-#                   top = True, right = True)
-#    plt.xlabel('$z$', fontsize = 20)
-#    plt.ylabel('Poisson cdf', fontsize = 20)
-#
-#    plt.title('Evolution of poisson cdf', fontsize = 20)
-
 
 def pshow_r(survey, rawdata, guess, loops):
     """ """
-    import matplotlib.pyplot as plt
     import math
     from scipy import interpolate
 
@@ -274,7 +258,7 @@ def pshow_r(survey, rawdata, guess, loops):
 
     plt.figure(figsize=[10, 5])
 
-    base_r = BaseRateModel()
+    base_r = VolumeRateModel()
     rate_r = RateFitter()
 
     x = [[] for i in range(loops)]
@@ -341,29 +325,6 @@ def pshow_r(survey, rawdata, guess, loops):
                 z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
                 p_zintp[i].append(interpolate.interp1d(
                                   x[i][k], y[i][k], kind='linear')(z_intp))
-
-#    plt.subplot(211)
-#
-#    p_mean = np.mean(np.mean(p_zintp, axis=1), axis=0)
-#    p_std = np.std(np.std(p_zintp, axis=1), axis=0)
-#    plt.plot(z_intp, p_mean, '-', color=colors[survey])
-#    plt.fill_between(z_intp, p_mean - p_std, p_mean + p_std,
-#                     color=colors[survey], alpha=0.5)
-#
-#    ax = plt.gca()
-#    ax.tick_params(axis='both',
-#                   direction='in',
-#                   length=10, width=3,
-#                   labelsize=20,
-#                   which='both',
-#                   top=True, right=True)
-#    plt.xlabel('$z$', fontsize=20)
-#    plt.ylabel('Poisson cdf', fontsize=20)
-#
-#    plt.title('Evolution of poisson cdf with mean for ' +
-#              str(survey), fontsize=20)
-#
-#    plt.subplot(212)
 
     p_med = np.median(np.median(p_zintp, axis=1), axis=0)
     p_std = np.std(np.std(p_zintp, axis=1), axis=0)
@@ -469,11 +430,13 @@ class _RateModelStructure_(BaseModel):
 
     def get_probabilities(self, counts, redshift_ranges):
         """ Returns the poisson statistics applied to each cases """
-        return stats.poisson.pmf(counts, self.get_expectedrate(redshift_ranges))
+        return stats.poisson.pmf(counts,
+                                 self.get_expectedrate(redshift_ranges))
 
     def get_cumuprob(self, counts, redshift_ranges):
         """ Returns the cumulative poisson statistics """
-        return stats.poisson.cdf(counts, self.get_expectedrate(redshift_ranges))
+        return stats.poisson.cdf(counts,
+                                 self.get_expectedrate(redshift_ranges))
 
     # ================= #
     #  Properties       #
@@ -509,8 +472,8 @@ class VolumeRateModel(BaseObject):
 
     def _get_rate_(self, redshifts):
         """ """
-        return self.paramrate['a'] *\
-            cosmo.comoving_volume(redshifts).value/self.VOLUME_SCALE
+        return self.paramrate['a']/self.VOLUME_SCALE *\
+            cosmo.comoving_volume(redshifts).value
 
     def get_rate(self, redshift_ranges):
         """ """
@@ -527,6 +490,7 @@ class PerrettRateModel(VolumeRateModel):
         """ See eq. 6 of https://arxiv.org/pdf/1811.02379.pdf """
         return self.paramrate['a'] * (1.75 * 1e-5 * (1+redshifts)**2.11)
 
+
 # ==================== #
 #                      #
 #  MISSED MODELS       #
@@ -538,13 +502,9 @@ class NoMissedModel(BaseObject):
     """ """
     MISSEDPARAMETERS = []
 
-    def get_logprior(self):
+    def _get_missedrate_(self, redshifts):
         """ """
         return 0
-
-#    def _get_missedrate_(self, redshifts):
-#        """ """
-#        return 0
 
     def get_missedrate(self, redshift_ranges):
         """ """
@@ -555,27 +515,22 @@ class ConstMissedModel(BaseObject):
     """ """
     MISSEDPARAMETERS = ['zmax']
 
-    def get_logprior(self):
-        """ """
-        return 0
-
     def _get_missedrate_(self, redshifts):
         """ """
         flag_up = redshifts > self.parammissed['zmax']
         missed = np.zeros(len(redshifts))
 
-        missed[flag_up] = 10
+        missed[flag_up] = -10
 
         return missed
 
     def get_missedrate(self, redshift_ranges):
         """ """
         # Could use self.paramrate
-        return self._get_missedrate_(redshift_ranges[1])\
+        return self._get_missedrate_(redshift_ranges[1])
 
 
-
-class ExpoMissedModel(NoMissedModel):
+class ExpoMissedModel(BaseObject):
     """ """
     MISSEDPARAMETERS = ["b", "zmax", "zc"]
 
@@ -583,10 +538,6 @@ class ExpoMissedModel(NoMissedModel):
     b_boundaries = [0, None]
     zmax_boundaries = [0, None]
     zc_boundaries = [1e-5, None]
-
-    def get_logprior(self):
-        """ """
-        return 0
 
     def _get_missedrate_(self, redshifts):
         """ """
@@ -601,8 +552,32 @@ class ExpoMissedModel(NoMissedModel):
 
     def get_missedrate(self, redshift_ranges):
         """ """
+        return self._get_missedrate_(redshift_ranges[1])
+
+
+class VolumeMissedModel(BaseObject):
+    """ """
+    MISSEDPARAMETERS = ['b', 'zmax']
+
+    # boundaries
+    b_boundaries = [0, None]
+    zmax_boundaries = [0, None]
+
+    def _get_missedrate_(self, redshifts):
+        """ """
+        flag_up = redshifts > self.parammissed['zmax']
+        missed = np.zeros(len(redshifts))
+
+        missed[flag_up] = self.parammissed['b']/self.VOLUME_SCALE *\
+            cosmo.comoving_volume(redshifts[flag_up]).value
+
+        return np.asarray(missed)
+
+    def get_missedrate(self, redshift_ranges):
+        """ """
         return self._get_missedrate_(redshift_ranges[1])\
-            #             - self._get_missedrate_(redshift_ranges[0])
+            - self._get_missedrate_(redshift_ranges[0])
+
 
 # ==================== #
 #                      #
@@ -611,17 +586,31 @@ class ExpoMissedModel(NoMissedModel):
 # ==================== #
 
 
-class BaseRateModel(NoMissedModel, VolumeRateModel, _RateModelStructure_):
+class VolumeNoModel(VolumeRateModel,
+                    NoMissedModel,
+                    _RateModelStructure_):
     """ """
 
 
-class PerrettRateModel(NoMissedModel, PerrettRateModel, _RateModelStructure_):
+class PerrettNoModel(PerrettRateModel,
+                     NoMissedModel,
+                     _RateModelStructure_):
     """ """
 
 
-class ExpoRateModel(ExpoMissedModel, VolumeRateModel, _RateModelStructure_):
+class VolumeExpoModel(VolumeRateModel,
+                      ExpoMissedModel,
+                      _RateModelStructure_):
     """ """
 
 
-class ConstRateModel(ConstMissedModel, VolumeRateModel, _RateModelStructure_):
+class VolumeConstModel(VolumeRateModel,
+                       ConstMissedModel,
+                       _RateModelStructure_):
+    """ """
+
+
+class VolumeVolumeModel(VolumeRateModel,
+                        VolumeMissedModel,
+                        _RateModelStructure_):
     """ """
