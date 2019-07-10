@@ -7,69 +7,191 @@ import iminuit as im
 import matplotlib.pyplot as plt
 plt.style.use(['classic', 'seaborn-white'])
 
-lssfr_med = -10.8
+lssfr_med = -10.82
 
-'''USAGE :
-names = {'lssfr_name':       'lssfr',
-         'stretch_name':     'salt2.X1',
-         'stretch_err_name': 'salt2.X1.err',
-         'lssfr_err_d_name': 'lssfr.err_down',
-         'lssfr_err_u_name': 'lssfr.err_up',
-         'py_name':          'p(prompt)}
 
-evolD = stretchevol.EvolDouble()
-evolD.set_names(names)
-evolD.set_data(pandas)
+def make_method(obj):
+    """Decorator to make the function a method of *obj*.
 
-evolD.minimize()
+    In the current context::
+      @make_method(Axes)
+      def toto(ax, ...):
+          ...
+    makes *toto* a method of `Axes`, so that one can directly use::
+      ax.toto()
+    COPYRIGHT: from Yannick Copin
+    """
 
-evolD.plt_scatter()
-'''
+    def decorate(f):
+        setattr(obj, f.__name__, f)
+        return f
+
+    return decorate
 
 #   ###########################################################################
-#   ################################ EVOLSIMPLE ###############################
+#   ################################ STRETCHDIST ##############################
 #   ###########################################################################
 
 
-class EvolSimple():
+class StretchDist():
     ''' '''
 
-    FREEPARAMETERS = ['mu_y', 'sigma_y', 'mu_o', 'sigma_o']
+    def set_data(self, redshifts, stretchs, stretchs_err):
+        '''Donne les données des redshifts, stretchs, et stretchs_err'''
+        self.redshifts = redshifts
+        self.stretchs = stretchs
+        self.stretchs_err = stretchs_err
 
-#   ################################# SETTER ##################################
+        self.floor = np.floor(np.min(self.stretchs)-0.4)
+        self.ceil = np.ceil(np.max(self.stretchs)+0.3)
 
-    def set_names(self, names):
-        '''Permet les extractions sur les pandas
-        names = {'lssfr_name':       'lssfr',
-                 'stretch_name':     'salt2.X1',
-                 'stretch_err_name': 'salt2.X1.err',
-                 'lssfr_err_d_name': 'lssfr.err_down',
-                 'lssfr_err_u_name': 'lssfr.err_up'}'''
-        self.names = names
+#   ###########################################################################
+#   ################################# LSSFRDIST ###############################
+#   ###########################################################################
 
-    def set_data(self, pandas):
-        '''Donne les pandas des stretch young & old'''
-        self.pandas_y = pandas.loc[pandas[self.names['lssfr_name']] > lssfr_med]
-        self.pandas_o = pandas.loc[pandas[self.names['lssfr_name']] < lssfr_med]
-        self.stretch_y_err = self.pandas_y[self.names['stretch_err_name']]
-        self.stretch_o_err = self.pandas_o[self.names['stretch_err_name']]
-        self.stretch_y = self.pandas_y[self.names['stretch_name']]
-        self.stretch_o = self.pandas_o[self.names['stretch_name']]
-        self.lssfr_y = self.pandas_y[self.names['lssfr_name']]
-        self.lssfr_o = self.pandas_o[self.names['lssfr_name']]
 
-        self.stretch = pandas[self.names['stretch_name']]
-        self.stretch_err = pandas[self.names['stretch_err_name']]
-        self.lssfr = pandas[self.names['lssfr_name']]
-        self.lssfr_err_d = pandas[self.names['lssfr_err_d_name']]
-        self.lssfr_err_u = pandas[self.names['lssfr_err_u_name']]
+class LssfrStretchDist(StretchDist):
+    ''' '''
+
+    def set_lssfr(self, stretch, stretch_err,
+                  lssfr, lssfr_err_d, lssfr_err_u, py):
+        '''Donne les données de lssfr et erreurs up/down + proba j/v'''
+        self.stretch = stretch
+        self.stretch_err = stretch_err
+
+        self.lssfr = lssfr
+        self.lssfr_err_d = lssfr_err_d
+        self.lssfr_err_u = lssfr_err_u
+
+        self.py = py
 
         self.floor = np.floor(np.min(self.stretch)-0.4)
-        self.ceil = np.ceil(np.max(self.stretch)+0.4)
+        self.ceil = np.ceil(np.max(self.stretch)+0.3)
+
+#   ###########################################################################
+#   ################################ EVOLHOWELL ###############################
+#   ###########################################################################
+
+
+class Evol2G2M2S(LssfrStretchDist):
+    '''USAGE :
+    evol = stretchevol.Evol2G2M2S()
+
+    evol.set_data(redshifts, stretchs, stretchs_err)
+    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['mu_2', 'sigma_2']
+    FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
+                                         YOUNGPARAMETERS),
+                               OLDPARAMETERS)
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+
+    def __new__(cls, *arg, **kwargs):
+        '''Upgrade of the New function to enable the _minuit_ black magic'''
+        obj = super(Evol2G2M2S, cls).__new__(cls)
+
+        exec("@make_method(Evol2G2M2S)\n" +
+             "def logprob(self, %s):\n" % (", ".join(obj.FREEPARAMETERS)) +
+             "    loglikelihood = self.loglikelihood(%s)\n" %
+             (", ".join(obj.FREEPARAMETERS)) +
+             "    logprior = self.logprior()\n" +
+             "    return logprior + loglikelihood")
+
+        if len(obj.YOUNGPARAMETERS) == 0:
+            return obj
+
+        exec("@make_method(Evol2G2M2S)\n" +
+             "def plotter(self, name=None):\n" +
+             "   '''Trace les fits et les données si lssfr donné'''\n" +
+             "   dgmap = plt.cm.get_cmap('viridis')\n" +
+             "\n" +
+             "   if hasattr(self, 'lssfr'):\n" +
+             "       dg_colors = [dgmap(i) for i in (1-self.py)]\n" +
+             "       plt.scatter(self.lssfr, self.stretch, marker='o',\n" +
+             "                   s=100, linewidths=0.5,\n" +
+             "                   facecolors=dg_colors, edgecolors='0.7',\n" +
+             "                   label='SNe data', zorder=8)\n" +
+             "\n" +
+             "       plt.errorbar(self.lssfr, self.stretch,\n" +
+             "                    xerr=[self.lssfr_err_d, self.lssfr_err_u],\n"
+             +
+             "                    yerr=self.stretch_err,\n" +
+             "                    ecolor='0.7', alpha=1, ms=0,\n" +
+             "                    ls='none', label=None, zorder=5)\n" +
+             "\n" +
+             "   plt.axvline(lssfr_med,\n" +
+             "               color='0.7', alpha=.5, linewidth=2.0)\n" +
+             "\n" +
+             "   x_linspace = np.linspace(self.floor, self.ceil, 3000)\n" +
+             "\n" +
+             "   plt.fill_betweenx(x_linspace,\n" +
+             "                     2*self.likelihood_y(x_linspace, 0, \n" +
+             "                                         %s)\n"
+             % (", \n                                         ".join(obj.PLTYOUNG)) +
+             "                     + lssfr_med,\n" +
+             "                     lssfr_med,\n" +
+             "                     facecolor=plt.cm.viridis(0.05, 0.1),\n"
+             +
+             "                     edgecolor=plt.cm.viridis(0.05, 0.8),\n"
+             +
+             "                     lw=2, label='model young')\n"
+             "\n" +
+             "   plt.fill_betweenx(x_linspace,\n" +
+             "                     -3*self.likelihood_o(x_linspace, 0, \n" +
+             "                                         %s)\n"
+             % (", \n                                         ".join(obj.PLTOLD)) +
+             "                     + lssfr_med,\n" +
+             "                     lssfr_med,\n" +
+             "                     facecolor=plt.cm.viridis(0.95, 0.1),\n"
+             +
+             "                     edgecolor=plt.cm.viridis(0.95, 0.8),\n"
+             +
+             "                     lw=2, label='model old')\n" +
+             "\n" +
+             "   ax = plt.gca()\n" +
+             "\n" +
+             "   ax.tick_params(axis='both',\n" +
+             "                  direction='in',\n" +
+             "                  length=10, width=3,\n" +
+             "                  labelsize=20,\n" +
+             "                  which='both',\n" +
+             "                  top=True, right=True)\n" +
+             "\n" +
+             "   ax.set_ylim([self.floor, self.ceil])\n" +
+             "\n" +
+             "   plt.xlabel('$LsSFR$', fontsize=20)\n" +
+             "   plt.ylabel('$x_1$', fontsize=20)\n" +
+             "\n" +
+             "   plt.legend(ncol=1, loc='upper left')\n" +
+             "\n" +
+             "   plt.title(name, fontsize=20)\n" +
+             "\n" +
+             "   plt.show()")
+
+        return obj
+
+#   ################################# SETTER ##################################
 
     def set_param(self, param):
         self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
                                            np.atleast_1d(param))}
+
+#   ################################# EXTMOD ##################################
+
+    def delta(self, z):
+        '''Gives the fraction of young SNe Ia as a function of redshift;
+        taken from https://arxiv.org/abs/1806.03849'''
+        K = 0.87
+        Phi = 2.8
+        return (K**(-1)*(1+z)**(-Phi)+1)**(-1)
 
 #   ################################## FITTER #################################
 
@@ -77,168 +199,80 @@ class EvolSimple():
         '''Le modèle de distribution'''
         return scipy.stats.norm.pdf(x, mu, scale=np.sqrt(dx**2+sigma**2))
 
-    def min_gauss_y(self, mu_y, sigma_y):
-        '''La fonction à minimiser pour young'''
-        return -2*np.sum(np.log(self.gauss(self.stretch_y, self.stretch_y_err,
-                                           mu_y, sigma_y)))
-
-    def min_gauss_o(self, mu_o, sigma_o):
-        '''La fonction à minimiser pour old'''
-        return -2*np.sum(np.log(self.gauss(self.stretch_o, self.stretch_o_err,
-                                           mu_o, sigma_o)))
-
-    def minimize(self, mu_y_guess=False, sigma_y_guess=False,
-                 mu_o_guess=False, sigma_o_guess=False):
-        '''Renvoie la meilleure valeur des paramètres'''
-        self.m_y = im.Minuit(self.min_gauss_y, mu_y=mu_y_guess,
-                             sigma_y=sigma_y_guess,
-                             print_level=0, pedantic=False)
-
-        self.m_o = im.Minuit(self.min_gauss_o, mu_o=mu_o_guess,
-                             sigma_o=sigma_o_guess,
-                             print_level=0, pedantic=False)
-
-        self.m_y.migrad()
-        self.m_o.migrad()
-
-        self.set_param([self.m_y.values['mu_y'], self.m_y.values['sigma_y'],
-                        self.m_o.values['mu_o'], self.m_o.values['sigma_o']])
-
-#   ################################# PLOTTER #################################
-
-    def plt_scatter(self):
-        '''Trace le nuage de points et les fits'''
-        plt.scatter(self.lssfr_y,
-                    self.stretch_y,
-                    marker='o', s=20,
-                    color='purple', label='young PG')
-        plt.scatter(self.lssfr_o,
-                    self.stretch_o,
-                    marker='o', s=20,
-                    color='orange', label='old PG')
-
-        plt.errorbar(self.lssfr,
-                     self.stretch,
-                     xerr=[self.lssfr_err_d, self.lssfr_err_u],
-                     yerr=self.stretch_err,
-                     ecolor='gray', alpha=.3,
-                     ls='none', label=None)
-
-        plt.plot([lssfr_med, lssfr_med],
-                 [self.floor, self.ceil],
-                 color='b', alpha=.5, linewidth=2.0)
-
-        x_linspace = np.linspace(self.floor, self.ceil, 1000)
-
-        plt.plot(self.gauss(x_linspace, 0, self.param['mu_y'],
-                            self.param['sigma_y'])+lssfr_med,
-                 x_linspace,
-                 color='r', label='gaussian young')
-        plt.plot(-self.gauss(x_linspace, 0, self.param['mu_o'],
-                             self.param['sigma_o'])+lssfr_med,
-                 x_linspace,
-                 color='g', label='gaussian old')
-
-        ax = plt.gca()
-
-        ax.tick_params(axis='both',
-                       direction='in',
-                       length=10, width=3,
-                       labelsize=20,
-                       which='both',
-                       top=True, right=True)
-        ax.set_ylim([self.floor, self.ceil])
-        plt.xlabel('$LsSFR$', fontsize=20)
-        plt.ylabel('$x_1$', fontsize=20)
-
-        plt.legend(ncol=1, loc='upper left',
-                   columnspacing=1.0, labelspacing=0.0,
-                   handletextpad=0.0, handlelength=1.5,
-                   fancybox=True, shadow=True)
-
-        plt.title('Evolution of $x_1$ on $LsSFR$', fontsize=20)
-
-        plt.show()
-
-#   ###########################################################################
-#   ################################ EVOLDOUBLE ###############################
-#   ###########################################################################
-
-
-class EvolDouble(EvolSimple):
-    ''' '''
-
-    FREEPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
-
-#   ################################# SETTER ##################################
-
-    def set_data(self, pandas):
-        '''Donne les pandas des stretch, lssfr, et Py '''
-        super().set_data(pandas)
-        self.py = pandas[self.names['py_name']]
-
-    def set_param(self, param):
-        self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
-                                           np.atleast_1d(param))}
-
-#   ################################## FITTER #################################
-
     def likelihood_y(self, x, dx, mu_1, sigma_1):
         '''La fonction décrivant le modèle des SNe jeunes'''
         return self.gauss(x, dx, mu_1, sigma_1)
 
-    def likelihood_o(self, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+    def likelihood_o(self, x, dx, mu_2, sigma_2):
         '''La fonction décrivant le modèle des SNe vieilles'''
-        return a*self.gauss(x, dx, mu_1, sigma_1) \
-         + (1-a)*self.gauss(x, dx, mu_2, sigma_2)
+        return self.gauss(x, dx, mu_2, sigma_2)
 
-    def likelihood_tot(self, py, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+    def likelihood_tot(self, z, x, dx, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return py*self.likelihood_y(x, dx, mu_1, sigma_1) \
-         + (1-py)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2, sigma_2)
+        return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-self.delta(z))*self.likelihood_o(x, dx, mu_2, sigma_2)
 
-    def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2):
+    def loglikelihood(self, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.py, self.stretch,
-                                                    self.stretch_err,
-                                                    a, mu_1, sigma_1,
+        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
+                                                    mu_1, sigma_1,
                                                     mu_2, sigma_2)))
 
-    def minimize(self, a_guess=False,
-                 mu_1_guess=False, sigma_1_guess=False,
-                 mu_2_guess=False, sigma_2_guess=False):
+    def logprior(self):
+        '''Impose des contraintes sur les paramètres'''
+        return 0
+
+    def minimize(self, print_level=0, **kwargs):
         '''Renvoie la meilleure valeur des paramètres'''
-        self.m_tot = im.Minuit(self.loglikelihood,
-                               a=a_guess, limit_a=(0, 1),
-                               mu_1=mu_1_guess, sigma_1=sigma_1_guess,
-                               mu_2=mu_2_guess, sigma_2=sigma_2_guess,
-                               print_level=0, pedantic=False)
+        self.m_tot = im.Minuit(self.logprob,
+                               print_level=print_level,
+                               pedantic=False,
+                               **kwargs)
 
-        self.m_tot.migrad()
+        self.migrad_out = self.m_tot.migrad()
 
-        self.set_param([self.m_tot.values['a'], self.m_tot.values['mu_1'],
-                        self.m_tot.values['sigma_1'], self.m_tot.values['mu_2'],
-                        self.m_tot.values['sigma_2']])
+        self.set_param([self.m_tot.values[k] for k in self.FREEPARAMETERS])
+
+    def get_logl(self, **kwargs):
+        if not hasattr(self, 'migrad_out'):
+            self.minimize(**kwargs)
+        return self.migrad_out[0]['fval']
+
+    def get_bic(self):
+        k = len(self.FREEPARAMETERS)
+        mdlogl = self.get_logl()
+
+        return mdlogl + k*np.log(len(self.stretchs))
+
+    def get_aicc(self):
+        k = len(self.FREEPARAMETERS)
+        mdlogl = self.get_logl()
+
+        return 2*k + mdlogl + (2*k*(k+1))/(len(self.stretchs)-k-1)
 
 #   ################################# PLOTTER #################################
-
-    def plt_scatter(self, model=True):
-        '''Trace le nuage de points et les fits'''
+    """
+    def scatter(self, model=True):
+        '''Trace le nuage de points et les fits
+        model=False ne montre que les données du pandas'''
         dgmap = plt.cm.get_cmap('viridis')
         dg_colors = [dgmap(i) for i in (1-self.py)]
 
-        plt.scatter(self.lssfr, self.stretch, marker='o',
-                    s=100, linewidths=0.5,
-                    facecolors=dg_colors, edgecolors="0.7",
-                    label='SNe data', zorder=8)
+        if hasattr(self, 'lssfr'):
+            plt.scatter(self.lssfr, self.stretch, marker='o',
+                        s=100, linewidths=0.5,
+                        facecolors=dg_colors, edgecolors="0.7",
+                        label='SNe data', zorder=8)
 
-        plt.errorbar(self.lssfr, self.stretch,
-                     xerr=[self.lssfr_err_d, self.lssfr_err_u],
-                     yerr=self.stretch_err,
-                     ecolor='0.7', alpha=1, ms=0,
-                     ls='none', label=None, zorder=5)
+            plt.errorbar(self.lssfr, self.stretch,
+                         xerr=[self.lssfr_err_d, self.lssfr_err_u],
+                         yerr=self.stretch_err,
+                         ecolor='0.7', alpha=1, ms=0,
+                         ls='none', label=None, zorder=5)
 
-        plt.axvline(-10.82,
+        plt.axvline(lssfr_med,
                     color='0.7', alpha=.5, linewidth=2.0)
 
         x_linspace = np.linspace(self.floor, self.ceil, 3000)
@@ -256,9 +290,6 @@ class EvolDouble(EvolSimple):
 
             plt.fill_betweenx(x_linspace,
                               -3*self.likelihood_o(x_linspace, 0,
-                                                   self.param['a'],
-                                                   self.param['mu_1'],
-                                                   self.param['sigma_1'],
                                                    self.param['mu_2'],
                                                    self.param['sigma_2'])
                               + lssfr_med,
@@ -283,8 +314,383 @@ class EvolDouble(EvolSimple):
 
         plt.legend(ncol=1, loc='upper left')
 
-        plt.xlim(-14.5, -8.5)
+        plt.title('1GSNF model', fontsize=20)
 
+        plt.show()
+    """
+
+#   ###########################################################################
+#   ################################## EVOLHOWF ###############################
+#   ###########################################################################
+
+
+class Evol2G2M2SF(Evol2G2M2S):
+    '''USAGE :
+    evol = stretchevol.Evol2G2M2SF()
+
+    evol.set_data(redshifts, stretchs, stretchs_err)
+    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
+
+    GLOBALPARAMETERS = ['f']
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['mu_2', 'sigma_2']
+    FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
+                                         YOUNGPARAMETERS),
+                               OLDPARAMETERS)
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+
+#   ################################## FITTER #################################
+
+    def likelihood_tot(self, x, dx, f, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-f)*self.likelihood_o(x, dx, mu_2, sigma_2)
+
+    def loglikelihood(self, f, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    f,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2)))
+
+#   ###########################################################################
+#   ################################ EVOLSIMPLE ###############################
+#   ###########################################################################
+
+
+class Evol1G1M1S(Evol2G2M2S):
+    '''USAGE :
+    evolS = stretchevol.Evol1G1M1S()
+    evolS.set_data(redshifts, stretchs, stretchs_err)
+
+    evolS.minimize()
+
+    evolS.scatter()
+    '''
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = []
+    OLDPARAMETERS = []
+    FREEPARAMETERS = ['mu', 'sigma']
+
+#   ################################## FITTER #################################
+
+    def likelihood_tot(self, x, dx, mu, sigma):
+        '''La fonction de distribution'''
+        return self.gauss(x, dx, mu, sigma)
+
+    def loglikelihood(self, mu, sigma):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    mu, sigma)))
+
+
+#   ###########################################################################
+#   ################################ EVOLKESSLE ###############################
+#   ###########################################################################
+
+
+class Evol2G1M2S(Evol2G2M2S):
+    '''USAGE :
+    evolK = stretchevol.Evol2G1M2S()
+    evolK.set_data(redshifts, stretchs, stretchs_err)
+
+    evolK.minimize()
+
+    evolK.scatter()
+    '''
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = []
+    OLDPARAMETERS = []
+    FREEPARAMETERS = ['mu', 'sigma_m', 'sigma_p']
+
+#   ################################## FITTER #################################
+
+    def likelihood_tot(self, x, dx, mu, sigma_m, sigma_p):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        flag_up = x >= mu
+        likelihood = np.zeros(len(x))
+
+        likelihood[flag_up] = self.gauss(x[flag_up], dx[flag_up],
+                                         mu, sigma_p)
+        likelihood[~flag_up] = self.gauss(x[~flag_up], dx[~flag_up],
+                                          mu, sigma_m)
+        return likelihood
+
+    def loglikelihood(self, mu, sigma_m, sigma_p):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    mu,
+                                                    sigma_m, sigma_p)))
+
+#   ###########################################################################
+#   ################################# EVOLNR1S ################################
+#   ###########################################################################
+
+
+class Evol3G2M1S(Evol2G2M2S):
+    '''USAGE :
+    evol = stretchevol.Evol2G2M1S()
+
+    evol.set_data(redshifts, stretchs, stretchs_err)
+    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2']
+    FREEPARAMETERS = OLDPARAMETERS
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+
+#   ################################## FITTER #################################
+
+    def likelihood_o(self, x, dx, a, mu_1, sigma_1, mu_2):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return a*self.gauss(x, dx, mu_1, sigma_1) + \
+            (1-a)*self.gauss(x, dx, mu_2, sigma_1)
+
+    def likelihood_tot(self, z, x, dx, a, mu_1, sigma_1, mu_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-self.delta(z))*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
+
+    def loglikelihood(self, a, mu_1, sigma_1, mu_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
+                                                    a, mu_1, sigma_1,
+                                                    mu_2)))
+
+#   ###########################################################################
+#   ############################### EVOLNR1SSNF ###############################
+#   ###########################################################################
+
+
+class Evol3G2M1SSNF(Evol3G2M1S):
+    '''USAGE :
+    evol = stretchevol.Evol3G2M1SSNF()
+
+    evol.set_lssfr(stretch, stretch_err,
+                   lssfr, lssfr_err_d, lssfr_err_u, py)
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2']
+    FREEPARAMETERS = OLDPARAMETERS
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+
+#   ################################## FITTER #################################
+
+    def likelihood_tot(self, py, x, dx, a, mu_1, sigma_1, mu_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return py*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-py)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
+
+    def loglikelihood(self, a, mu_1, sigma_1, mu_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.py,
+                                                    self.stretch,
+                                                    self.stretch_err,
+                                                    a, mu_1, sigma_1,
+                                                    mu_2)))
+
+
+#   ###########################################################################
+#   ################################# EVOLNR1SF ###############################
+#   ###########################################################################
+
+
+class Evol3G2M1SF(Evol3G2M1S):
+    '''USAGE :
+    evol = stretchevol.Evol2G1SF()
+
+    evol.set_data(redshifts, stretchs, stretchs_err)
+    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
+
+    GLOBALPARAMETERS = ['f']
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2']
+    FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+
+#   ################################## FITTER #################################
+
+    def likelihood_tot(self, x, dx, f, a, mu_1, sigma_1, mu_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-f)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
+
+    def loglikelihood(self, f, a, mu_1, sigma_1, mu_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    f, a,
+                                                    mu_1, sigma_1,
+                                                    mu_2)))
+
+#   ###########################################################################
+#   ################################# EVOLNR2S ################################
+#   ###########################################################################
+
+
+class Evol3G2M2S(Evol2G2M2S):
+    '''USAGE :
+    evol = stretchevol.Evol3G2M2S()
+
+    evol.set_data(redshifts, stretchs, stretchs_err)
+    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    FREEPARAMETERS = OLDPARAMETERS
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+
+#   ################################## FITTER #################################
+
+    def likelihood_o(self, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return a*self.gauss(x, dx, mu_1, sigma_1) + \
+            (1-a)*self.gauss(x, dx, mu_2, sigma_2)
+
+    def likelihood_tot(self, z, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-self.delta(z))*self.likelihood_o(x, dx, a, mu_1, sigma_1,
+                                                mu_2, sigma_2)
+
+    def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
+                                                    a, mu_1, sigma_1,
+                                                    mu_2, sigma_2)))
+
+#   ###########################################################################
+#   ################################ EVOLNR2SF ################################
+#   ###########################################################################
+
+
+class Evol3G2M2SF(Evol3G2M2S):
+    '''USAGE :
+    evolF = stretchevol.Evol3G2M2SF()
+    evolF.set_data(redshifts, stretchs, stretchs_err)
+
+    evolF.minimize()
+
+    evolF.scatter()
+    '''
+
+    GLOBALPARAMETERS = ['f']
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+
+#   ################################## FITTER #################################
+
+    def likelihood_tot(self, x, dx, f, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-f)*self.likelihood_o(x, dx, a,
+                                    mu_1, sigma_1,
+                                    mu_2, sigma_2)
+
+    def loglikelihood(self, f, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    f, a,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2)))
+
+#   ###########################################################################
+#   ################################ EVOLNRTOT ################################
+#   ###########################################################################
+
+
+class Evol3G3M3S(Evol3G2M2S):
+    '''USAGE :
+    evolF = stretchevol.Evol3G3M3S()
+    evolF.set_data(redshifts, stretchs, stretchs_err)
+
+    evolF.minimize()
+
+    evolF.scatter()
+    '''
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['a', 'mu_2', 'sigma_2', 'mu_3', 'sigma_3']
+    FREEPARAMETERS = ['a',
+                      'mu_1', 'sigma_1',
+                      'mu_2', 'sigma_2',
+                      'mu_3', 'sigma_3']
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+
+#   ################################## FITTER #################################
+
+    def likelihood_o(self, x, dx, a, mu_2, sigma_2, mu_3, sigma_3):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return a*self.gauss(x, dx, mu_2, sigma_2) + \
+            (1-a)*self.gauss(x, dx, mu_3, sigma_3)
+
+    def likelihood_tot(self, z, x, dx, a,
+                       mu_1, sigma_1,
+                       mu_2, sigma_2,
+                       mu_3, sigma_3):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-self.delta(z))*self.likelihood_o(x, dx, a,
+                                                mu_2, sigma_2,
+                                                mu_3, sigma_3)
+
+    def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
+                                                    a,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2,
+                                                    mu_3, sigma_3)))
 
 #   ###########################################################################
 #   ################################# MOCKEVOL ################################
