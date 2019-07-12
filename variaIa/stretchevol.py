@@ -1,13 +1,21 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
 import scipy
+import iminuit
 import numpy as np
-import iminuit as im
+import pandas as pd
 import matplotlib.pyplot as plt
 plt.style.use(['classic', 'seaborn-white'])
 
 lssfr_med = -10.82
+
+snf_a = 0.477301
+snf_mu_1 = 0.386896
+snf_sigma_1 = 0.555105
+snf_mu_2 = -1.52109
+snf_sigma_2 = 0.518584
 
 
 def make_method(obj):
@@ -27,6 +35,23 @@ def make_method(obj):
         return f
 
     return decorate
+
+
+def mod_comp(model_names, models, desc, redshifts, stretchs, stretchs_err):
+    ''' '''
+    for k in models:
+        k.set_data(redshifts, stretchs, stretchs_err)
+        k.minimize()
+
+    fp = [len(k.FREEPARAMETERS) for k in models]
+    lnl = [k.get_logl() for k in models]
+    bic = [k.get_bic() for k in models]
+
+    return pd.DataFrame({'Nom modèle': model_names,
+                         'Description': desc,
+                         'Paramètres libres': fp,
+                         'ln L': lnl,
+                         'BIC': bic})
 
 #   ###########################################################################
 #   ################################ STRETCHDIST ##############################
@@ -93,6 +118,8 @@ class Evol2G2M2S(LssfrStretchDist):
                                OLDPARAMETERS)
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = [k + '=' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
     def __new__(cls, *arg, **kwargs):
         '''Upgrade of the New function to enable the _minuit_ black magic'''
@@ -104,6 +131,21 @@ class Evol2G2M2S(LssfrStretchDist):
              (", ".join(obj.FREEPARAMETERS)) +
              "    logprior = self.logprior()\n" +
              "    return logprior + loglikelihood")
+
+        exec("@make_method(Evol2G2M2S)\n" +
+             "def minimize(self, print_level=0, **kwargs):\n" +
+             "   '''Renvoie la meilleure valeur des paramètres'''\n" +
+             "   self.m_tot = iminuit.Minuit(self.logprob,\n" +
+             "                               print_level=print_level,\n" +
+             "                               pedantic=False,\n" +
+             "                               **kwargs,\n" +
+             "                               %s)\n"
+             % (", \n                               ".join(obj.GUESS)) +
+             "\n" +
+             "   self.migrad_out = self.m_tot.migrad()\n" +
+             "\n" +
+             "   self.set_param([self.m_tot.values[k] for k in " +
+             "self.FREEPARAMETERS])\n")
 
         if len(obj.YOUNGPARAMETERS) == 0:
             return obj
@@ -224,17 +266,6 @@ class Evol2G2M2S(LssfrStretchDist):
         '''Impose des contraintes sur les paramètres'''
         return 0
 
-    def minimize(self, print_level=0, **kwargs):
-        '''Renvoie la meilleure valeur des paramètres'''
-        self.m_tot = im.Minuit(self.logprob,
-                               print_level=print_level,
-                               pedantic=False,
-                               **kwargs)
-
-        self.migrad_out = self.m_tot.migrad()
-
-        self.set_param([self.m_tot.values[k] for k in self.FREEPARAMETERS])
-
     def get_logl(self, **kwargs):
         if not hasattr(self, 'migrad_out'):
             self.minimize(**kwargs)
@@ -344,6 +375,8 @@ class Evol2G2M2SF(Evol2G2M2S):
                                OLDPARAMETERS)
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
@@ -379,6 +412,8 @@ class Evol1G1M1S(Evol2G2M2S):
     YOUNGPARAMETERS = []
     OLDPARAMETERS = []
     FREEPARAMETERS = ['mu', 'sigma']
+    GUESSVAL = [0, 1]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
@@ -391,7 +426,6 @@ class Evol1G1M1S(Evol2G2M2S):
         return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
                                                     self.stretchs_err,
                                                     mu, sigma)))
-
 
 #   ###########################################################################
 #   ################################ EVOLKESSLE ###############################
@@ -412,6 +446,8 @@ class Evol2G1M2S(Evol2G2M2S):
     YOUNGPARAMETERS = []
     OLDPARAMETERS = []
     FREEPARAMETERS = ['mu', 'sigma_m', 'sigma_p']
+    GUESSVAL = [0.973, 1.5, 0.5]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
@@ -443,7 +479,6 @@ class Evol3G2M1S(Evol2G2M2S):
     evol = stretchevol.Evol2G2M1S()
 
     evol.set_data(redshifts, stretchs, stretchs_err)
-    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
 
     evol.minimize()
 
@@ -456,6 +491,8 @@ class Evol3G2M1S(Evol2G2M2S):
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
@@ -500,6 +537,8 @@ class Evol3G2M1SSNF(Evol3G2M1S):
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
@@ -515,7 +554,6 @@ class Evol3G2M1SSNF(Evol3G2M1S):
                                                     self.stretch_err,
                                                     a, mu_1, sigma_1,
                                                     mu_2)))
-
 
 #   ###########################################################################
 #   ################################# EVOLNR1SF ###############################
@@ -540,6 +578,8 @@ class Evol3G2M1SF(Evol3G2M1S):
     FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
@@ -579,6 +619,8 @@ class Evol3G2M2S(Evol2G2M2S):
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
@@ -622,6 +664,8 @@ class Evol3G2M2SF(Evol3G2M2S):
     FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
@@ -639,6 +683,49 @@ class Evol3G2M2SF(Evol3G2M2S):
                                                     f, a,
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2)))
+
+#   ###########################################################################
+#   ################################ EVOLNR2SSNF ##############################
+#   ###########################################################################
+
+
+class Evol3G2M2SSNF(Evol3G2M2S):
+    '''USAGE :
+    evol = stretchevol.Evol3G2M2SSNF()
+
+    evol.set_lssfr(stretch, stretch_err,
+                   lssfr, lssfr_err_d, lssfr_err_u, py)
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    FREEPARAMETERS = OLDPARAMETERS
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+
+#   ################################## FITTER #################################
+
+    def likelihood_tot(self, py, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return py*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-py)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2, sigma_2)
+
+    def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.py,
+                                                    self.stretch,
+                                                    self.stretch_err,
+                                                    a,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2)))
+
 
 #   ###########################################################################
 #   ################################ EVOLNRTOT ################################
@@ -664,6 +751,8 @@ class Evol3G3M3S(Evol3G2M2S):
                       'mu_3', 'sigma_3']
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
 
 #   ################################## FITTER #################################
 
