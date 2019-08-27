@@ -59,7 +59,15 @@ def mod_comp(model_names, models, desc, redshifts, stretchs, stretchs_err):
 
 
 class StretchDist():
-    ''' '''
+    '''USAGE :
+    evol = stretchevol.EvolCHOICE()
+
+    evol.set_data(redshifts, stretchs, stretchs_err)
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
 
     def set_data(self, redshifts, stretchs, stretchs_err):
         '''Donne les données des redshifts, stretchs, et stretchs_err'''
@@ -76,7 +84,16 @@ class StretchDist():
 
 
 class LssfrStretchDist(StretchDist):
-    ''' '''
+    '''USAGE :
+    evol = stretchevol.Evol3G2M2SSNF()
+
+    evol.set_lssfr(stretch, stretch_err,
+                   lssfr, lssfr_err_d, lssfr_err_u, py)
+
+    evol.minimize()
+
+    evol.scatter()
+    '''
 
     def set_lssfr(self, stretch, stretch_err,
                   lssfr, lssfr_err_d, lssfr_err_u, py):
@@ -99,16 +116,7 @@ class LssfrStretchDist(StretchDist):
 
 
 class Evol2G2M2S(LssfrStretchDist):
-    '''USAGE :
-    evol = stretchevol.Evol2G2M2S()
-
-    evol.set_data(redshifts, stretchs, stretchs_err)
-    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
-
-    evol.minimize()
-
-    evol.scatter()
-    '''
+    '''Evol Howell'''
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -200,21 +208,19 @@ class Evol2G2M2S(LssfrStretchDist):
              "\n" +
              "   ax = plt.gca()\n" +
              "\n" +
-             "   ax.tick_params(axis='both',\n" +
-             "                  direction='in',\n" +
-             "                  length=10, width=3,\n" +
-             "                  labelsize=20,\n" +
-             "                  which='both',\n" +
+             "   ax.tick_params(direction='in',\n" +
+             "                  length=5, width=1,\n" +
+             "                  labelsize=15,\n" +
              "                  top=True, right=True)\n" +
              "\n" +
              "   ax.set_ylim([self.floor, self.ceil])\n" +
              "\n" +
-             "   plt.xlabel('$LsSFR$', fontsize=20)\n" +
-             "   plt.ylabel('$x_1$', fontsize=20)\n" +
+             "   ax.set_xlabel(r'$\mathrm{log(LsSFR)}$',fontsize='x-large')\n" +
+             "   ax.set_ylabel(r'$\mathrm{x}_1$', fontsize='x-large')\n" +
              "\n" +
              "   plt.legend(ncol=1, loc='upper left')\n" +
              "\n" +
-             "   plt.title(name, fontsize=20)\n" +
+             "   plt.title(name, fontsize='x-large')\n" +
              "\n" +
              "   plt.show()")
 
@@ -284,27 +290,30 @@ class Evol2G2M2S(LssfrStretchDist):
         return 2*k + mdlogl + (2*k*(k+1))/(len(self.stretchs)-k-1)
 
 #   ################################# PLOTTER #################################
-    """
+
     def scatter(self, model=True):
         '''Trace le nuage de points et les fits
         model=False ne montre que les données du pandas'''
         dgmap = plt.cm.get_cmap('viridis')
         dg_colors = [dgmap(i) for i in (1-self.py)]
 
+        fig = plt.figure(figsize=[8, 5])
+        ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
         if hasattr(self, 'lssfr'):
-            plt.scatter(self.lssfr, self.stretch, marker='o',
-                        s=100, linewidths=0.5,
-                        facecolors=dg_colors, edgecolors="0.7",
-                        label='SNe data', zorder=8)
+            ax.scatter(self.lssfr, self.stretch, marker='o',
+                       s=100, linewidths=0.5,
+                       facecolors=dg_colors, edgecolors="0.7",
+                       label='SNe data', zorder=8)
 
-            plt.errorbar(self.lssfr, self.stretch,
-                         xerr=[self.lssfr_err_d, self.lssfr_err_u],
-                         yerr=self.stretch_err,
-                         ecolor='0.7', alpha=1, ms=0,
-                         ls='none', label=None, zorder=5)
+            ax.errorbar(self.lssfr, self.stretch,
+                        xerr=[self.lssfr_err_d, self.lssfr_err_u],
+                        yerr=self.stretch_err,
+                        ecolor='0.7', alpha=1, ms=0,
+                        ls='none', label=None, zorder=5)
 
-        plt.axvline(lssfr_med,
-                    color='0.7', alpha=.5, linewidth=2.0)
+        ax.vline(lssfr_med,
+                 color='0.7', alpha=.5, linewidth=2.0)
 
         x_linspace = np.linspace(self.floor, self.ceil, 3000)
 
@@ -321,6 +330,9 @@ class Evol2G2M2S(LssfrStretchDist):
 
             plt.fill_betweenx(x_linspace,
                               -3*self.likelihood_o(x_linspace, 0,
+                                                   self.param['a'],
+                                                   self.param['mu_1'],
+                                                   self.param['sigma_1'],
                                                    self.param['mu_2'],
                                                    self.param['sigma_2'])
                               + lssfr_med,
@@ -329,26 +341,22 @@ class Evol2G2M2S(LssfrStretchDist):
                               edgecolor=plt.cm.viridis(0.95, 0.8),
                               lw=2, label='model old')
 
-        ax = plt.gca()
-
-        ax.tick_params(axis='both',
-                       direction='in',
-                       length=10, width=3,
-                       labelsize=20,
-                       which='both',
+        ax.tick_params(direction='in',
+                       length=5, width=1,
+                       labelsize=15,
                        top=True, right=True)
 
         ax.set_ylim([self.floor, self.ceil])
 
-        plt.xlabel('$LsSFR$', fontsize=20)
-        plt.ylabel('$x_1$', fontsize=20)
+        ax.set_xlabel(r'$\mathrm{log(LsSFR)}$', fontsize='x-large')
+        ax.set_ylabel(r'$\mathrm{x}_1$', fontsize='x-large')
 
         plt.legend(ncol=1, loc='upper left')
 
-        plt.title('1GSNF model', fontsize=20)
+        # plt.title('1GSNF model', fontsize=20)
 
         plt.show()
-    """
+
 
 #   ###########################################################################
 #   ################################## EVOLHOWF ###############################
@@ -356,16 +364,7 @@ class Evol2G2M2S(LssfrStretchDist):
 
 
 class Evol2G2M2SF(Evol2G2M2S):
-    '''USAGE :
-    evol = stretchevol.Evol2G2M2SF()
-
-    evol.set_data(redshifts, stretchs, stretchs_err)
-    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
-
-    evol.minimize()
-
-    evol.scatter()
-    '''
+    '''Evol Howell Fixed'''
 
     GLOBALPARAMETERS = ['f']
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -399,14 +398,7 @@ class Evol2G2M2SF(Evol2G2M2S):
 
 
 class Evol1G1M1S(Evol2G2M2S):
-    '''USAGE :
-    evolS = stretchevol.Evol1G1M1S()
-    evolS.set_data(redshifts, stretchs, stretchs_err)
-
-    evolS.minimize()
-
-    evolS.scatter()
-    '''
+    '''Evol 1 gaussienne'''
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = []
@@ -432,15 +424,8 @@ class Evol1G1M1S(Evol2G2M2S):
 #   ###########################################################################
 
 
-class Evol2G1M2S(Evol2G2M2S):
-    '''USAGE :
-    evolK = stretchevol.Evol2G1M2S()
-    evolK.set_data(redshifts, stretchs, stretchs_err)
-
-    evolK.minimize()
-
-    evolK.scatter()
-    '''
+class Evol1G1M2S(Evol2G2M2S):
+    '''Evol Kessler'''
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = []
@@ -475,15 +460,7 @@ class Evol2G1M2S(Evol2G2M2S):
 
 
 class Evol3G2M1S(Evol2G2M2S):
-    '''USAGE :
-    evol = stretchevol.Evol2G2M1S()
-
-    evol.set_data(redshifts, stretchs, stretchs_err)
-
-    evol.minimize()
-
-    evol.scatter()
-    '''
+    '''Evol NR 1S'''
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -520,16 +497,7 @@ class Evol3G2M1S(Evol2G2M2S):
 
 
 class Evol3G2M1SSNF(Evol3G2M1S):
-    '''USAGE :
-    evol = stretchevol.Evol3G2M1SSNF()
-
-    evol.set_lssfr(stretch, stretch_err,
-                   lssfr, lssfr_err_d, lssfr_err_u, py)
-
-    evol.minimize()
-
-    evol.scatter()
-    '''
+    '''Evol NR 1S on SNF data'''
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -561,16 +529,7 @@ class Evol3G2M1SSNF(Evol3G2M1S):
 
 
 class Evol3G2M1SF(Evol3G2M1S):
-    '''USAGE :
-    evol = stretchevol.Evol2G1SF()
-
-    evol.set_data(redshifts, stretchs, stretchs_err)
-    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
-
-    evol.minimize()
-
-    evol.scatter()
-    '''
+    '''Evol NR 1S Fixed'''
 
     GLOBALPARAMETERS = ['f']
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -602,16 +561,7 @@ class Evol3G2M1SF(Evol3G2M1S):
 
 
 class Evol3G2M2S(Evol2G2M2S):
-    '''USAGE :
-    evol = stretchevol.Evol3G2M2S()
-
-    evol.set_data(redshifts, stretchs, stretchs_err)
-    evol.set_lssfr(lssfr, lssfr_err_d, lssfr_err_u, py), optional
-
-    evol.minimize()
-
-    evol.scatter()
-    '''
+    '''Evol NR 2S'''
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -649,14 +599,7 @@ class Evol3G2M2S(Evol2G2M2S):
 
 
 class Evol3G2M2SF(Evol3G2M2S):
-    '''USAGE :
-    evolF = stretchevol.Evol3G2M2SF()
-    evolF.set_data(redshifts, stretchs, stretchs_err)
-
-    evolF.minimize()
-
-    evolF.scatter()
-    '''
+    '''Evol NR 2S Fixed'''
 
     GLOBALPARAMETERS = ['f']
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -690,16 +633,7 @@ class Evol3G2M2SF(Evol3G2M2S):
 
 
 class Evol3G2M2SSNF(Evol3G2M2S):
-    '''USAGE :
-    evol = stretchevol.Evol3G2M2SSNF()
-
-    evol.set_lssfr(stretch, stretch_err,
-                   lssfr, lssfr_err_d, lssfr_err_u, py)
-
-    evol.minimize()
-
-    evol.scatter()
-    '''
+    '''Evol NR 2S on SNF data'''
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -733,14 +667,7 @@ class Evol3G2M2SSNF(Evol3G2M2S):
 
 
 class Evol3G3M3S(Evol3G2M2S):
-    '''USAGE :
-    evolF = stretchevol.Evol3G3M3S()
-    evolF.set_data(redshifts, stretchs, stretchs_err)
-
-    evolF.minimize()
-
-    evolF.scatter()
-    '''
+    '''Evol NR 3S'''
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
@@ -780,6 +707,49 @@ class Evol3G3M3S(Evol3G2M2S):
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2,
                                                     mu_3, sigma_3)))
+
+#   ###########################################################################
+#   ################################ EVOLNRTOTF ###############################
+#   ###########################################################################
+
+
+class Evol3G3M3SF(Evol3G3M3S):
+    '''Evol NR 3S Fixed'''
+
+    GLOBALPARAMETERS = ['f']
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['a', 'mu_2', 'sigma_2', 'mu_3', 'sigma_3']
+    FREEPARAMETERS = ['f', 'a',
+                      'mu_1', 'sigma_1',
+                      'mu_2', 'sigma_2',
+                      'mu_3', 'sigma_3']
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+
+#   ################################## FITTER #################################
+
+    def likelihood_tot(self, z, x, dx, f, a,
+                       mu_1, sigma_1,
+                       mu_2, sigma_2,
+                       mu_3, sigma_3):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-f)*self.likelihood_o(x, dx, a,
+                                    mu_2, sigma_2,
+                                    mu_3, sigma_3)
+
+    def loglikelihood(self, f, a, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
+                                                    f, a,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2,
+                                                    mu_3, sigma_3)))
+
 
 #   ###########################################################################
 #   ################################# MOCKEVOL ################################
@@ -890,3 +860,4 @@ class MockEvol():
                    fancybox=True, shadow=True)
 
         plt.title('Stretch distribution at $z = $' + str(self.z), fontsize=20)
+

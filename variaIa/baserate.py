@@ -115,14 +115,12 @@ class RateFitter(BaseFitter):
                    **prop)
 
         ax.set_ylim(0)
-        ax.set_ylabel("counts", fontsize=20)
-        ax.set_xlabel("redshift", fontsize=20)
+        ax.set_ylabel(r'$\mathrm{counts}$', fontsize='x-large')
+        ax.set_xlabel(r'$\mathrm{redshift}$', fontsize='x-large')
 
-        ax.tick_params(axis='both',
-                       direction='in',
-                       length=10, width=3,
-                       labelsize=20,
-                       which='both',
+        ax.tick_params(direction='in',
+                       length=5, width=1,
+                       labelsize=15,
                        top=True, right=True)
 
         if add_proba:
@@ -143,8 +141,8 @@ class RateFitter(BaseFitter):
                                                  self.redshift_ranges),
                          color="0.5", ls="-")
 
-            axt.set_ylabel("Poisson cdf", fontsize=20)
-            axt.tick_params(labelsize=20)
+            axt.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
+            axt.tick_params(labelsize=15)
 
         return {"fig": fig, "ax": ax}
 
@@ -245,7 +243,7 @@ class RateFitter(BaseFitter):
 # ==================== #
 
 
-def pshow_r(survey, rawdata, guess, loops):
+def pshow_r(survey, rawdata, guess, loops, show=True):
     """ """
     import math
     from scipy import interpolate
@@ -258,7 +256,7 @@ def pshow_r(survey, rawdata, guess, loops):
 
     plt.figure(figsize=[10, 5])
 
-    base_r = VolumeRateModel()
+    base_r = VolumeNoModel()
     rate_r = RateFitter()
 
     x = [[] for i in range(loops)]
@@ -328,26 +326,34 @@ def pshow_r(survey, rawdata, guess, loops):
 
     p_med = np.median(np.median(p_zintp, axis=1), axis=0)
     p_std = np.std(np.std(p_zintp, axis=1), axis=0)
-    plt.plot(z_intp, p_med, '-', color=colors[survey])
-    plt.fill_between(z_intp, p_med - p_std, p_med + p_std,
-                     color=colors[survey], alpha=0.5)
 
-    ax = plt.gca()
-    ax.tick_params(axis='both',
-                   direction='in',
-                   length=10, width=3,
-                   labelsize=20,
-                   which='both',
+    fig = plt.figure(figsize=[8, 5])
+    ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
+    ax.plot(z_intp, p_med, '-', color=colors[survey])
+    ax.fill_between(z_intp, p_med - p_std, p_med + p_std,
+                    color=colors[survey], alpha=0.5)
+
+    ax.tick_params(direction='in',
+                   length=5, width=1,
+                   labelsize=12,
                    top=True, right=True)
-    plt.xlabel('$z$', fontsize=20)
-    plt.ylabel('Poisson cdf', fontsize=20)
 
-    plt.title('Evolution of poisson cdf with median for ' +
-              str(survey), fontsize=20)
+    ax.set_xlim(np.min(z_intp), np.max(z_intp))
+
+    ax.set_xlabel(r'$\mathrm{redshift}$', fontsize='x-large')
+    ax.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
+
+    plt.title(r'$\mathrm{Evolution\,\,of\,\,poisson\,\,cdf\,\,with\,\,}$' +
+              r'$\mathrm{median\,\,for\,\,}$' +
+              str(survey), fontsize='x-large')
 
 #    plt.subplots_adjust(hspace=0.3)
 
-    plt.show()
+    if not(show):
+        plt.close()
+
+    return(p_med)
 
 #
 # MODEL
