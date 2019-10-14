@@ -334,6 +334,9 @@ def pshow_r(survey, rawdata, guess, loops, show=True):
     ax.fill_between(z_intp, p_med - p_std, p_med + p_std,
                     color=colors[survey], alpha=0.5)
 
+    ax.hline(0.3,
+             color=colors[survey], alpha=.5, linewidth=2.0)
+
     ax.tick_params(direction='in',
                    length=5, width=1,
                    labelsize=12,

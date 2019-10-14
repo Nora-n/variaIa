@@ -1,1 +1,3 @@
-__version__ = "0.1.0"
+__version__ = "0.8.2"
+from . import stretchevol
+from . import baserate

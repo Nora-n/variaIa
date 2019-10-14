@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys
 import scipy
 import iminuit
 import numpy as np
@@ -444,7 +443,8 @@ class Evol1G1M2S(Evol2G2M2S):
         likelihood[flag_up] = self.gauss(x[flag_up], dx[flag_up],
                                          mu, sigma_p)
         likelihood[~flag_up] = self.gauss(x[~flag_up], dx[~flag_up],
-                                          mu, sigma_m)
+                                          mu, sigma_m)  # / .29
+
         return likelihood
 
     def loglikelihood(self, mu, sigma_m, sigma_p):
@@ -453,6 +453,48 @@ class Evol1G1M2S(Evol2G2M2S):
                                                     self.stretchs_err,
                                                     mu,
                                                     sigma_m, sigma_p)))
+
+#   ################################# PLOTTER #################################
+
+    def traceur(self, model=True):
+        '''Trace le nuage de points et les fits
+        model=False ne montre que les données du pandas'''
+        fig = plt.figure(figsize=[8, 5])
+        ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
+        ax.vline(self.param['mu'], 0, 2,
+                 color='0.7', alpha=.5, linewidth=2.0)
+
+        x_linspace = np.linspace(self.floor, self.ceil, 3000)
+
+        if model is True:
+            plt.fill_betweenx(2*self.likelihood_tot(x_linspace,
+                                                    np.zeros(len(x_linspace)),
+                                                    self.param['mu'],
+                                                    self.param['sigma_m'],
+                                                    self.param['sigma_p']),
+                              x_linspace,
+                              np.zeros(len(x_linspace)),
+                              facecolor=plt.cm.viridis(0.05, 0.1),
+                              edgecolor=plt.cm.viridis(0.05, 0.8),
+                              lw=2, label='model Kessler')
+
+        ax.tick_params(direction='in',
+                       length=5, width=1,
+                       labelsize=15,
+                       top=True, right=True)
+
+        ax.set_xlim([self.floor, self.ceil])
+        # ax.set_ylim([-11, -9])
+
+        ax.set_ylabel(r'$\mathrm{Probability}$', fontsize='x-large')
+        ax.set_xlabel(r'$\mathrm{x}_1$', fontsize='x-large')
+
+        plt.legend(ncol=1, loc='upper left')
+
+        # plt.title('1GSNF model', fontsize=20)
+
+        plt.show()
 
 #   ###########################################################################
 #   ################################# EVOLNR1S ################################
@@ -860,4 +902,3 @@ class MockEvol():
                    fancybox=True, shadow=True)
 
         plt.title('Stretch distribution at $z = $' + str(self.z), fontsize=20)
-

@@ -14,7 +14,7 @@ MAINTAINER_EMAIL = 'nora.nicolas@ens-lyon.org'
 URL = 'https://github.com/Nora-n/variaIa/'
 LICENSE = 'BSD (3-clause)'
 DOWNLOAD_URL = 'https://github.com/Nora-n/variaIa/'
-VERSION = '0.8.1'
+VERSION = '0.8.2'
 
 try:
     from setuptools import setup, find_packages
