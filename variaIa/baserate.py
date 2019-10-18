@@ -254,43 +254,56 @@ def pshow_r(survey, rawdata, guess, loops, show=True):
               'HST': 'purple',
               'SNF': 'orange'}
 
-    plt.figure(figsize=[10, 5])
-
+    # set empty base model and empty ratefitter to be filled
     base_r = VolumeNoModel()
     rate_r = RateFitter()
 
+    # set empty list of lists to be filled
     x = [[] for i in range(loops)]
     y = [[] for i in range(loops)]
     p_zintp = [[] for i in range(loops)]
 
     if survey == 'SNLS':
         for i in range(loops):
+            # define start of histogram randomly between 0.06 and 0.12
             data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,
                                          math.floor(rawdata[0]*100))/100
+            # define end of histogram randomly between 1.10 and 1.15
             data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,
                                          (math.ceil(rawdata[-1]*10)
                                         + math.floor(rawdata[0]*10)/2)*10)/100
+            # complete random data is start + normal data + end
             data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
-            nb_bins_r = np.random.randint(5, 13)
-            nb_fits_per_dist = 4
-            bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r)[1])
+            # define total number of bins
+            nb_bins_r = np.random.randint(5, 20)
+            # define number of fits for each number of total bins
+            nb_fits_per_dist = 10
+            # get the counts and limits of bins
+            counts_r, bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r))
+            # define the list of lower and upper bins for ratefit to work
             bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
                                  for i in range(len(bord_r)-1)]).T
-            counts_r = np.histogram(data_r, bord_r)[0]
 
+            # create the according ratefitter
             rate_r.set_data(counts_r, bins_r)
             rate_r.set_model(base_r)
 
             for k in range(nb_fits_per_dist):
+                # for each run with total number of bins, limit the fit to a
+                # random bin from 3 to max
                 rate_r.set_fitted_flag(rate_r._central_redshiftranges
                                        < rate_r._central_redshiftranges
-                                       [np.random.randint(1, nb_bins_r)])
+                                       [np.random.randint(3, nb_bins_r)])
                 rate_r.fit(a_guess=guess)
 
+                # fill i loop with positions of bins, k times
                 x[i].append(rate_r._central_redshiftranges)
+                # fill i loop with values of cdf, k times
                 y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
                                                       rate_r.redshift_ranges))
+                # define the z list for interpolating
                 z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
+                # fill i loop with interpolation for saving
                 p_zintp[i].append(interpolate.interp1d(
                                   x[i][k], y[i][k], kind='linear')(z_intp))
     else:
@@ -301,12 +314,11 @@ def pshow_r(survey, rawdata, guess, loops, show=True):
                                          (math.ceil(rawdata[-1]*100)
                                         + math.floor(rawdata[0]*100)/2)*10)/1000
             data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
-            nb_bins_r = np.random.randint(5, 13)
-            nb_fits_per_dist = 4
-            bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r)[1])
+            nb_bins_r = np.random.randint(5, 20)
+            nb_fits_per_dist = 10
+            counts_r, bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r))
             bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
                                  for i in range(len(bord_r)-1)]).T
-            counts_r = np.histogram(data_r, bord_r)[0]
 
             rate_r.set_data(counts_r, bins_r)
             rate_r.set_model(base_r)
@@ -314,7 +326,7 @@ def pshow_r(survey, rawdata, guess, loops, show=True):
             for k in range(nb_fits_per_dist):
                 rate_r.set_fitted_flag(rate_r._central_redshiftranges
                                        < rate_r._central_redshiftranges
-                                       [np.random.randint(1, nb_bins_r)])
+                                       [np.random.randint(3, nb_bins_r)])
                 rate_r.fit(a_guess=guess)
 
                 x[i].append(rate_r._central_redshiftranges)
@@ -324,7 +336,9 @@ def pshow_r(survey, rawdata, guess, loops, show=True):
                 p_zintp[i].append(interpolate.interp1d(
                                   x[i][k], y[i][k], kind='linear')(z_intp))
 
+    # compute the median of all interpolated curves
     p_med = np.median(np.median(p_zintp, axis=1), axis=0)
+    # compute the standard deviation of all interpolated curves
     p_std = np.std(np.std(p_zintp, axis=1), axis=0)
 
     fig = plt.figure(figsize=[8, 5])

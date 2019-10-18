@@ -162,22 +162,25 @@ class Evol2G2M2S(LssfrStretchDist):
              "   '''Trace les fits et les données si lssfr donné'''\n" +
              "   dgmap = plt.cm.get_cmap('viridis')\n" +
              "\n" +
+             "   fig = plt.figure(figsize=[8, 5])\n" +
+             "   ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])\n" +
+             "\n" +
              "   if hasattr(self, 'lssfr'):\n" +
              "       dg_colors = [dgmap(i) for i in (1-self.py)]\n" +
-             "       plt.scatter(self.lssfr, self.stretch, marker='o',\n" +
-             "                   s=100, linewidths=0.5,\n" +
-             "                   facecolors=dg_colors, edgecolors='0.7',\n" +
-             "                   label='SNe data', zorder=8)\n" +
+             "       ax.scatter(self.lssfr, self.stretch, marker='o',\n" +
+             "                  s=100, linewidths=0.5,\n" +
+             "                  facecolors=dg_colors, edgecolors='0.7',\n" +
+             "                  label='SNe data', zorder=8)\n" +
              "\n" +
-             "       plt.errorbar(self.lssfr, self.stretch,\n" +
-             "                    xerr=[self.lssfr_err_d, self.lssfr_err_u],\n"
+             "       ax.errorbar(self.lssfr, self.stretch,\n" +
+             "                   xerr=[self.lssfr_err_d, self.lssfr_err_u],\n"
              +
-             "                    yerr=self.stretch_err,\n" +
-             "                    ecolor='0.7', alpha=1, ms=0,\n" +
-             "                    ls='none', label=None, zorder=5)\n" +
+             "                   yerr=self.stretch_err,\n" +
+             "                   ecolor='0.7', alpha=1, ms=0,\n" +
+             "                   ls='none', label=None, zorder=5)\n" +
              "\n" +
-             "   plt.axvline(lssfr_med,\n" +
-             "               color='0.7', alpha=.5, linewidth=2.0)\n" +
+             "   ax.vline(lssfr_med,\n" +
+             "            color='0.7', alpha=.5, linewidth=2.0)\n" +
              "\n" +
              "   x_linspace = np.linspace(self.floor, self.ceil, 3000)\n" +
              "\n" +
@@ -205,8 +208,6 @@ class Evol2G2M2S(LssfrStretchDist):
              +
              "                     lw=2, label='model old')\n" +
              "\n" +
-             "   ax = plt.gca()\n" +
-             "\n" +
              "   ax.tick_params(direction='in',\n" +
              "                  length=5, width=1,\n" +
              "                  labelsize=15,\n" +
@@ -219,9 +220,7 @@ class Evol2G2M2S(LssfrStretchDist):
              "\n" +
              "   plt.legend(ncol=1, loc='upper left')\n" +
              "\n" +
-             "   plt.title(name, fontsize='x-large')\n" +
-             "\n" +
-             "   plt.show()")
+             "   plt.title(name, fontsize='x-large')")
 
         return obj
 
@@ -353,9 +352,6 @@ class Evol2G2M2S(LssfrStretchDist):
         plt.legend(ncol=1, loc='upper left')
 
         # plt.title('1GSNF model', fontsize=20)
-
-        plt.show()
-
 
 #   ###########################################################################
 #   ################################## EVOLHOWF ###############################
