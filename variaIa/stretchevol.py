@@ -36,21 +36,22 @@ def make_method(obj):
     return decorate
 
 
-def mod_comp(model_names, models, desc, redshifts, stretchs, stretchs_err):
-    ''' '''
-    for k in models:
-        k.set_data(redshifts, stretchs, stretchs_err)
-        k.minimize()
+# def mod_comp(model_names, models, desc, redshifts, stretchs, stretchs_err):
+#     ''' '''
+#     for k in models:
+#         k.set_data(redshifts, stretchs, stretchs_err)
+#         k.minimize()
+#
+#     fp = [len(k.FREEPARAMETERS) for k in models]
+#     lnl = [k.get_logl() for k in models]
+#     bic = [k.get_bic() for k in models]
+#
+#     return pd.DataFrame({'Nom modèle': model_names,
+#                          'Description': desc,
+#                          'Paramètres libres': fp,
+#                          'ln L': lnl,
+#                          'BIC': bic})
 
-    fp = [len(k.FREEPARAMETERS) for k in models]
-    lnl = [k.get_logl() for k in models]
-    bic = [k.get_bic() for k in models]
-
-    return pd.DataFrame({'Nom modèle': model_names,
-                         'Description': desc,
-                         'Paramètres libres': fp,
-                         'ln L': lnl,
-                         'BIC': bic})
 
 #   ###########################################################################
 #   ################################ STRETCHDIST ##############################
@@ -880,11 +881,9 @@ class MockEvol():
 
         ax = plt.gca()
 
-        ax.tick_params(axis='both',
-                       direction='in',
-                       length=10, width=3,
-                       labelsize=20,
-                       which='both',
+        ax.tick_params(direction='in',
+                       length=5, width=1,
+                       labelsize=15,
                        top=True, right=True)
 
         ax.set_xlim([self.floor, self.ceil])
@@ -898,3 +897,231 @@ class MockEvol():
                    fancybox=True, shadow=True)
 
         plt.title('Stretch distribution at $z = $' + str(self.z), fontsize=20)
+
+
+#   ###########################################################################
+#   ################################# ALLINONE ################################
+#   ###########################################################################
+
+
+def get_proba(best, model):
+    return np.exp((best.get_aicc() - model.get_aicc())/2)
+
+
+def zmax_impact(zmax):
+    d = pd.read_csv('../Data/data_cheat.csv', sep=' ', index_col='CID')
+    d_snf = pd.read_csv('../Data/lssfr_paper_full_sntable.csv', sep=',')
+
+    surv = {'SNF':  d_snf,
+            'SDSS': d[d['IDSURVEY'] == 1],
+            'PS1':  d[d['IDSURVEY'] == 15],
+            'SNLS': d[d['IDSURVEY'] == 4],
+            'HST':  d[d['IDSURVEY'].isin([101, 100, 106])]}
+
+    surveys = list(zmax.keys())
+
+    zmax_cuts = dict()
+    z_zcuts = dict()
+    x1_zcuts = dict()
+    x1_err_zcuts = dict()
+
+    evol1G1M1S = Evol1G1M1S()
+    evol1G1M2S = Evol1G1M2S()
+    evol2G2M2S = Evol2G2M2S()
+    evol2G2M2SF = Evol2G2M2SF()
+    evol3G2M1S = Evol3G2M1S()
+    evol3G2M1SF = Evol3G2M1SF()
+    evol3G2M2S = Evol3G2M2S()
+    evol3G2M2SF = Evol3G2M2SF()
+    evol3G3M3S = Evol3G3M3S()
+    evol3G3M3SF = Evol3G3M3SF()
+
+    d_mod_comp = []
+    NR_params = []
+
+    # gen = (survey for survey in surveys if survey != 'SNF')
+
+    for i in range(len(zmax['SDSS'])):
+        for survey in surveys[:-1]:
+            zmax_cuts[survey] = np.where(surv[survey].zCMB.values
+                                         < zmax[survey][i])
+            z_zcuts[survey] = surv[survey].zCMB.values[zmax_cuts[survey]]
+            x1_zcuts[survey] = surv[survey].x1.values[zmax_cuts[survey]]
+            x1_err_zcuts[survey] = surv[survey].x1ERR.values[zmax_cuts[survey]]
+
+        zmax_cuts['SNF'] = np.where(surv['SNF']['host.zcmb'].values
+                                    < zmax['SNF'][i])
+        z_zcuts['SNF'] = surv['SNF']['host.zcmb'].values[zmax_cuts['SNF']]
+        x1_zcuts['SNF'] = surv['SNF']['salt2.X1'].values[zmax_cuts['SNF']]
+        x1_err_zcuts['SNF'] = surv['SNF']['salt2.X1.err'].values[zmax_cuts['SNF']]
+
+        datax_all = np.concatenate(
+            (np.concatenate(
+                (np.concatenate(
+                    (np.concatenate((x1_zcuts['SNF'],
+                                     x1_zcuts['SDSS'])),
+                     x1_zcuts['PS1'])),
+                 x1_zcuts['SNLS'])),
+             x1_zcuts['HST']))
+
+        datax_err_all = np.concatenate(
+            (np.concatenate(
+                (np.concatenate(
+                    (np.concatenate((x1_err_zcuts['SNF'],
+                                     x1_err_zcuts['SDSS'])),
+                     x1_err_zcuts['PS1'])),
+                 x1_err_zcuts['SNLS'])),
+             x1_err_zcuts['HST']))
+
+        dataz_all = np.concatenate(
+            (np.concatenate(
+                (np.concatenate(
+                    (np.concatenate((z_zcuts['SNF'],
+                                     z_zcuts['SDSS'])),
+                     z_zcuts['PS1'])),
+                 z_zcuts['SNLS'])),
+             z_zcuts['HST']))
+
+        frame = pd.DataFrame({'Name': [],
+                              'ln L': [],
+                              'AICc': [],
+                              '$\Delta$ AICc': [],
+                              'Proba': []})
+
+        del(evol3G2M1S)
+        evol3G2M1S = Evol3G2M1S()
+        evol3G2M1S.set_data(dataz_all, datax_all, datax_err_all)
+        evol3G2M1S.minimize()
+
+        frame.loc[0, 'Name'] = type(evol3G2M1S).__name__
+        frame.loc[0, 'ln L'] = evol3G2M1S.get_logl()
+        frame.loc[0, 'AICc'] = evol3G2M1S.get_aicc()
+        frame.loc[0, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol3G2M1S.get_aicc())
+        frame.loc[0, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol3G2M1S)
+
+        del(evol3G2M2S)
+        evol3G2M2S = Evol3G2M2S()
+        evol3G2M2S.set_data(dataz_all, datax_all, datax_err_all)
+        evol3G2M2S.minimize()
+
+        frame.loc[1, 'Name'] = type(evol3G2M2S).__name__
+        frame.loc[1, 'ln L'] = evol3G2M2S.get_logl()
+        frame.loc[1, 'AICc'] = evol3G2M2S.get_aicc()
+        frame.loc[1, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol3G2M2S.get_aicc())
+        frame.loc[1, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol3G2M2S)
+
+        del(evol2G2M2S)
+        evol2G2M2S = Evol2G2M2S()
+        evol2G2M2S.set_data(dataz_all, datax_all, datax_err_all)
+        evol2G2M2S.minimize()
+
+        frame.loc[2, 'Name'] = type(evol2G2M2S).__name__
+        frame.loc[2, 'ln L'] = evol2G2M2S.get_logl()
+        frame.loc[2, 'AICc'] = evol2G2M2S.get_aicc()
+        frame.loc[2, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol2G2M2S.get_aicc())
+        frame.loc[2, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol2G2M2S)
+
+        del(evol3G3M3S)
+        evol3G3M3S = Evol3G3M3S()
+        evol3G3M3S.set_data(dataz_all, datax_all, datax_err_all)
+        evol3G3M3S.minimize()
+
+        frame.loc[3, 'Name'] = type(evol3G3M3S).__name__
+        frame.loc[3, 'ln L'] = evol3G3M3S.get_logl()
+        frame.loc[3, 'AICc'] = evol3G3M3S.get_aicc()
+        frame.loc[3, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol3G3M3S.get_aicc())
+        frame.loc[3, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol3G3M3S)
+
+        del(evol3G3M3SF)
+        evol3G3M3SF = Evol3G3M3SF()
+        evol3G3M3SF.set_data(dataz_all, datax_all, datax_err_all)
+        evol3G3M3SF.minimize(limit_f=(0, 1), limit_a=(0, 1))
+
+        frame.loc[4, 'Name'] = type(evol3G3M3SF).__name__
+        frame.loc[4, 'ln L'] = evol3G3M3SF.get_logl()
+        frame.loc[4, 'AICc'] = evol3G3M3SF.get_aicc()
+        frame.loc[4, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol3G3M3SF.get_aicc())
+        frame.loc[4, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol3G3M3SF)
+
+        del(evol3G2M2SF)
+        evol3G2M2SF = Evol3G2M2SF()
+        evol3G2M2SF.set_data(dataz_all, datax_all, datax_err_all)
+        evol3G2M2SF.minimize(limit_f=(0, 1), limit_a=(0, 1))
+
+        frame.loc[5, 'Name'] = type(evol3G2M2SF).__name__
+        frame.loc[5, 'ln L'] = evol3G2M2SF.get_logl()
+        frame.loc[5, 'AICc'] = evol3G2M2SF.get_aicc()
+        frame.loc[5, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol3G2M2SF.get_aicc())
+        frame.loc[5, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol3G2M2SF)
+
+        del(evol2G2M2SF)
+        evol2G2M2SF = Evol2G2M2SF()
+        evol2G2M2SF.set_data(dataz_all, datax_all, datax_err_all)
+        evol2G2M2SF.minimize()
+
+        frame.loc[6, 'Name'] = type(evol2G2M2SF).__name__
+        frame.loc[6, 'ln L'] = evol2G2M2SF.get_logl()
+        frame.loc[6, 'AICc'] = evol2G2M2SF.get_aicc()
+        frame.loc[6, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol2G2M2SF.get_aicc())
+        frame.loc[6, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol2G2M2SF)
+
+        del(evol3G2M1SF)
+        evol3G2M1SF = Evol3G2M1SF()
+        evol3G2M1SF.set_data(dataz_all, datax_all, datax_err_all)
+        evol3G2M1SF.minimize(limit_f=(0, 1), limit_a=(0, 1))
+
+        frame.loc[7, 'Name'] = type(evol3G2M1SF).__name__
+        frame.loc[7, 'ln L'] = evol3G2M1SF.get_logl()
+        frame.loc[7, 'AICc'] = evol3G2M1SF.get_aicc()
+        frame.loc[7, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol3G2M1SF.get_aicc())
+        frame.loc[7, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol3G2M1SF)
+
+        del(evol1G1M2S)
+        evol1G1M2S = Evol1G1M2S()
+        evol1G1M2S.set_data(dataz_all, datax_all, datax_err_all)
+        evol1G1M2S.minimize()
+
+        frame.loc[8, 'Name'] = type(evol1G1M2S).__name__
+        frame.loc[8, 'ln L'] = evol1G1M2S.get_logl()
+        frame.loc[8, 'AICc'] = evol1G1M2S.get_aicc()
+        frame.loc[8, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol1G1M2S.get_aicc())
+        frame.loc[8, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol1G1M2S)
+
+        del(evol1G1M1S)
+        evol1G1M1S = Evol1G1M1S()
+        evol1G1M1S.set_data(dataz_all, datax_all, datax_err_all)
+        evol1G1M1S.minimize()
+
+        frame.loc[9, 'Name'] = type(evol1G1M1S).__name__
+        frame.loc[9, 'ln L'] = evol1G1M1S.get_logl()
+        frame.loc[9, 'AICc'] = evol1G1M1S.get_aicc()
+        frame.loc[9, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
+                                         - evol1G1M1S.get_aicc())
+        frame.loc[9, 'Proba'] = get_proba(evol3G2M1S,
+                                          evol1G1M1S)
+
+        d_mod_comp.append(frame)
+
+        NR_params.append([round(evol3G2M1S.param['a'], 4),
+                          round(evol3G2M1S.param['mu_1'], 4),
+                          round(evol3G2M1S.param['mu_2'], 4)])
+
+    return(d_mod_comp, NR_params)

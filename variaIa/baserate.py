@@ -149,10 +149,10 @@ class RateFitter(BaseFitter):
     def pshow(self, guess):
         """ """
         fig = plt.figure(figsize=[10, 6])
+        ax = fig.add_axes([.1, .12, .8, .8])
 
         num_plots = len(self.redshift_ranges.T)
 
-#        colormap = plt.cm.gist_ncar
         plt.gca().set_prop_cycle(plt.cycler('color',
                                             plt.cm.jet(np.linspace(0, 1,
                                                        num_plots))))
@@ -170,25 +170,21 @@ class RateFitter(BaseFitter):
                      self.model.get_cumuprob(self.fitted_counts,
                                              self.fitted_redshift_ranges))
 
-        ax = plt.gca()
-        ax.tick_params(axis='both',
-                       direction='in',
-                       length=10, width=3,
-                       labelsize=20,
-                       which='both',
+        ax.tick_params(direction='in',
+                       length=5, width=1,
+                       labelsize=12,
                        top=True, right=True)
-        plt.xlabel('$z_{max}$', fontsize=20)
-        plt.ylabel('Poisson cdf', fontsize=20)
 
-        plt.title('Evolution of poisson cdf with bins used to fit',
-                  fontsize=20)
+        ax.set_xlabel(r'$z_{max}$', fontsize='x-large')
+        ax.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
+
+        plt.title(r'$\mathrm{Evolution\,\,of\,\,poisson\,\,cdf\,\,with\,\,}$' +
+                  r'$\mathrm{bins\,\,used\,\,to\,\,fit}$', fontsize='x-large')
 
         plt.legend(labels, ncol=1, loc='upper right',
                    columnspacing=1.0, labelspacing=0.0,
                    handletextpad=0.0, handlelength=1.5,
                    fancybox=True, shadow=True)
-
-        plt.show()
 
     # ================ #
     #  Parameters      #
@@ -243,16 +239,11 @@ class RateFitter(BaseFitter):
 # ==================== #
 
 
-def pshow_r(survey, rawdata, guess, loops, show=True):
-    """ """
+def zmax_poisson(survey, rawdata, guess, loops, itsc):
+    """Calculates the cdf evolution, and get the intersection.
+    Returns list of z_linspace, cdf med and std, and zinf, max, sup)"""
     import math
     from scipy import interpolate
-
-    colors = {'SDSS': 'lime',
-              'SNLS': 'red',
-              'PS1': 'blue',
-              'HST': 'purple',
-              'SNF': 'orange'}
 
     # set empty base model and empty ratefitter to be filled
     base_r = VolumeNoModel()
@@ -302,7 +293,7 @@ def pshow_r(survey, rawdata, guess, loops, show=True):
                 y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
                                                       rate_r.redshift_ranges))
                 # define the z list for interpolating
-                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
+                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 10000)
                 # fill i loop with interpolation for saving
                 p_zintp[i].append(interpolate.interp1d(
                                   x[i][k], y[i][k], kind='linear')(z_intp))
@@ -332,7 +323,7 @@ def pshow_r(survey, rawdata, guess, loops, show=True):
                 x[i].append(rate_r._central_redshiftranges)
                 y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
                                                       rate_r.redshift_ranges))
-                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
+                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 10000)
                 p_zintp[i].append(interpolate.interp1d(
                                   x[i][k], y[i][k], kind='linear')(z_intp))
 
@@ -341,36 +332,74 @@ def pshow_r(survey, rawdata, guess, loops, show=True):
     # compute the standard deviation of all interpolated curves
     p_std = np.std(np.std(p_zintp, axis=1), axis=0)
 
+    # construct list of horizontal values for intersection
+    horiz = [itsc for i in range(len(p_med))]
+    # gives the indice of intersection with p_med
+    ind = np.argwhere(np.diff(np.sign(p_med - horiz))).flatten()
+    # same with p_med - p_std
+    ind_inf = np.argwhere(np.diff(np.sign((p_med - p_std) - horiz))).flatten()
+    # same with p_med + p_std
+    ind_sup = np.argwhere(np.diff(np.sign((p_med + p_std) - horiz))).flatten()
+    # This gives the list of borne inf, moyenne, borne sup
+    zmax = [round(z_intp[ind_inf[0]], 4),
+            round(z_intp[ind[0]], 4),
+            round(z_intp[ind_sup[0]], 4)]
+
+    return(z_intp, p_med, p_std, zmax)
+
+
+def zmax_pshow(z_lins, meds, stds, z_max,
+               itsc, show_itsc=True, show_vline=True):
+    """Plot all (or one) cdf evolution"""
     fig = plt.figure(figsize=[8, 5])
     ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
 
-    ax.plot(z_intp, p_med, '-', color=colors[survey])
-    ax.fill_between(z_intp, p_med - p_std, p_med + p_std,
-                    color=colors[survey], alpha=0.5)
+    surveys = list(z_lins.keys())
 
-    ax.hline(0.3,
-             color=colors[survey], alpha=.5, linewidth=2.0)
+    colors = {'SDSS': 'lime',
+              'PS1': 'blue',
+              'SNLS': 'red'}
+
+    for survey in surveys:
+        ax.plot(z_lins[survey],
+                meds[survey],
+                '-', color=colors[survey],
+                label=survey)
+        ax.fill_between(z_lins[survey],
+                        meds[survey] - stds[survey],
+                        meds[survey] + stds[survey],
+                        color=colors[survey], alpha=0.1)
+        if show_vline:
+            ax.vline(z_max[survey][1],
+                     color=colors[survey],
+                     lw=1.0)
+            ax.plot(z_max[survey][1], itsc, color="black", marker='o')
+
+    if show_itsc:
+        ax.hline(0.3,
+                 color="0.3", lw=1.0)
 
     ax.tick_params(direction='in',
                    length=5, width=1,
                    labelsize=12,
                    top=True, right=True)
 
-    ax.set_xlim(np.min(z_intp), np.max(z_intp))
+    ax.set_xlim(np.min(list(z_lins.values())),
+                np.max(list(z_lins.values())))
+    ax.set_ylim(np.min(np.asarray(list(meds.values()))
+                       - np.asarray(list(stds.values()))),
+                np.max(np.asarray(list(meds.values()))
+                       + np.asarray(list(stds.values()))))
 
     ax.set_xlabel(r'$\mathrm{redshift}$', fontsize='x-large')
     ax.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
 
+    plt.legend(ncol=1, loc='upper right')
+
     plt.title(r'$\mathrm{Evolution\,\,of\,\,poisson\,\,cdf\,\,with\,\,}$' +
-              r'$\mathrm{median\,\,for\,\,}$' +
-              str(survey), fontsize='x-large')
+              r'$\mathrm{median\,\,for\,\,surveys}$',
+              fontsize='x-large')
 
-#    plt.subplots_adjust(hspace=0.3)
-
-    if not(show):
-        plt.close()
-
-    return(p_med)
 
 #
 # MODEL
