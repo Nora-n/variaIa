@@ -333,23 +333,25 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
     p_std = np.std(np.std(p_zintp, axis=1), axis=0)
 
     # construct list of horizontal values for intersection
-    horiz = [itsc for i in range(len(p_med))]
+    horiz_med = [itsc for i in range(len(p_med))]
+    horiz_inf = [1.05*itsc for i in range(len(p_med))]
+    horiz_sup = [0.95*itsc for i in range(len(p_med))]
     # gives the indice of intersection with p_med
-    ind = np.argwhere(np.diff(np.sign(p_med - horiz))).flatten()
+    ind_med = np.argwhere(np.diff(np.sign(p_med - horiz_med))).flatten()[-1]
     # same with p_med - p_std
-    ind_inf = np.argwhere(np.diff(np.sign((p_med - p_std) - horiz))).flatten()
+    ind_inf = np.argwhere(np.diff(np.sign(p_med - horiz_inf))).flatten()[-1]
     # same with p_med + p_std
-    ind_sup = np.argwhere(np.diff(np.sign((p_med + p_std) - horiz))).flatten()
+    ind_sup = np.argwhere(np.diff(np.sign(p_med - horiz_sup))).flatten()[-1]
     # This gives the list of borne inf, moyenne, borne sup
-    zmax = [round(z_intp[ind_inf[0]], 4),
-            round(z_intp[ind[0]], 4),
-            round(z_intp[ind_sup[0]], 4)]
+    zmax = [round(z_intp[ind_inf], 4),
+            round(z_intp[ind_med], 4),
+            round(z_intp[ind_sup], 4)]
 
     return(z_intp, p_med, p_std, zmax)
 
 
-def zmax_pshow(z_lins, meds, stds, z_max,
-               itsc, show_itsc=True, show_vline=True):
+def zmax_pshow(z_lins, meds, stds, z_max, itsc,
+               show_itsc=True, show_infsup=True):
     """Plot all (or one) cdf evolution"""
     fig = plt.figure(figsize=[8, 5])
     ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
@@ -369,14 +371,35 @@ def zmax_pshow(z_lins, meds, stds, z_max,
                         meds[survey] - stds[survey],
                         meds[survey] + stds[survey],
                         color=colors[survey], alpha=0.1)
-        if show_vline:
+        if show_itsc:
             ax.vline(z_max[survey][1],
                      color=colors[survey],
                      lw=1.0)
-            ax.plot(z_max[survey][1], itsc, color="black", marker='o')
+            ax.plot(z_max[survey][1],
+                    itsc,
+                    color="black", marker='o')
+        if show_infsup:
+            ax.vline(z_max[survey][0],
+                     color=colors[survey],
+                     lw=1.0)
+            ax.plot(z_max[survey][0],
+                    1.05*itsc,
+                    color=".7", marker='o')
+            ax.vline(z_max[survey][2],
+                     color=colors[survey],
+                     lw=1.0)
+            ax.plot(z_max[survey][2],
+                    0.95*itsc,
+                    color=".7", marker='o')
 
     if show_itsc:
-        ax.hline(0.3,
+        ax.hline(itsc,
+                 color="0.3", lw=1.0)
+
+    if show_infsup:
+        ax.hline(.95*itsc,
+                 color="0.3", lw=1.0)
+        ax.hline(1.05*itsc,
                  color="0.3", lw=1.0)
 
     ax.tick_params(direction='in',
