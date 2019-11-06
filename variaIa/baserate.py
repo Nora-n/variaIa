@@ -36,9 +36,11 @@ _ = ratefitter.show()
 """
 
 
-#
-# FITTER
-#
+# =========================================================================== #
+#                                                                             #
+#                                   FITTER                                    #
+#                                                                             #
+# =========================================================================== #
 
 class RateFitter(BaseFitter):
     """ """
@@ -46,21 +48,21 @@ class RateFitter(BaseFitter):
     SIDE_PROPERTIES = ["fitted_flag"]
     DERIVED_PROPERTIES = ["fitted_counts", "fitted_redshift_ranges"]
 
-    # ================ #
-    #  BaseModel Struc #
-    # ================ #
+    # =================================================================== #
+    #                           BaseModel Struc                           #
+    # =================================================================== #
 
     def _get_model_args_(self):
         """ """
         return self.fitted_counts, self.fitted_redshift_ranges
 
-    # ================ #
-    #  Methods         #
-    # ================ #
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
 
-    # --------- #
-    #  SETTER   #
-    # --------- #
+    # ------------------------------------------------------------------- #
+    #                               SETTER                                #
+    # ------------------------------------------------------------------- #
 
     def set_data(self, counts, redshift_ranges):
         """ Number of counts in your sample within the given redshift_ranges"""
@@ -81,9 +83,9 @@ class RateFitter(BaseFitter):
         self._derived_properties["fitted_redshift_ranges"] =\
             self.redshift_ranges.T[self.fitted_flag].T
 
-    # --------- #
-    #  PLOTTER  #
-    # --------- #
+    # ------------------------------------------------------------------- #
+    #                               PLOTTER                               #
+    # ------------------------------------------------------------------- #
 
     def show(self, datacolor="C0", modelcolor="C1", stepalpha=0.2,
              add_proba=True):
@@ -186,9 +188,9 @@ class RateFitter(BaseFitter):
                    handletextpad=0.0, handlelength=1.5,
                    fancybox=True, shadow=True)
 
-    # ================ #
-    #  Parameters      #
-    # ================ #
+    # =================================================================== #
+    #                               Parameters                            #
+    # =================================================================== #
 
     # - Data In
     @property
@@ -232,16 +234,289 @@ class RateFitter(BaseFitter):
                 self.redshift_ranges
         return self._derived_properties["fitted_redshift_ranges"]
 
-# ==================== #
-#                      #
-#   SHOW P-VALUE       #
-#                      #
-# ==================== #
+# =========================================================================== #
+#                                                                             #
+#                                MODEL STRUC                                  #
+#                                                                             #
+# =========================================================================== #
+
+
+class _RateModelStructure_(BaseModel):
+    """ """
+    VOLUME_SCALE = 1e8
+    RATEPARAMETERS = []
+    MISSEDPARAMETERS = []
+
+    def __new__(cls, *arg, **kwarg):
+        """ Black Magic allowing generalization of Polynomial models """
+        cls.FREEPARAMETERS = cls.RATEPARAMETERS + cls.MISSEDPARAMETERS
+        return super(_RateModelStructure_, cls).__new__(cls)
+
+    def setup(self, parameters):
+        """ """
+        if self.nmissedparameters > 0:
+            self.paramrate = {k: v for k, v in
+                              zip(self.RATEPARAMETERS,
+                                  parameters[:self.nrateparameters])}
+            self.parammissed = {k: v for k, v in
+                                zip(self.MISSEDPARAMETERS,
+                                    parameters[self.nrateparameters:])}
+
+        elif self.nrateparameters == 1:
+            self.paramrate = {self.RATEPARAMETERS[0]: parameters}
+
+        else:
+            self.paramrate = {k: v for k, v in zip(self.RATEPARAMETERS,
+                                                   parameters)}
+
+    # ------------------------------------------------------------------- #
+    #                               Model                                 #
+    # ------------------------------------------------------------------- #
+
+    def get_model(self, *args):
+        """ """
+        return self.get_expectedrate(*args)
+
+    #  Nature - Missed
+    def get_expectedrate(self, redshift_ranges):
+        """ """
+        return self.get_rate(redshift_ranges)\
+            - self.get_missedrate(redshift_ranges)
+
+    def get_rate(self, redshift_ranges):
+        """ """
+        # Could use self.paramrate
+        raise\
+            NotImplementedError(
+                "Your RateModel class must define `get_rate()` ")
+
+    def get_missedrate(self, redshift_ranges):
+        """ """
+        # Could use self.missedrate
+        raise\
+            NotImplementedError(
+                "Your RateModel class must define `get_missedrate()` ")
+
+    # ------------------------------------------------------------------- #
+    #                               Likelihood                            #
+    # ------------------------------------------------------------------- #
+
+    def get_logprob(self, *args):
+        """ """
+        return self.get_loglikelihood(*args) + self.get_logpriors()
+
+    def get_logpriors(self):
+        """ """
+        return 0
+
+    def get_loglikelihood(self, counts, redshift_ranges):
+        """ """
+        # poisson.pmf(k, mu) = probability to observe k counts\
+        # given that we expect mu
+        return np.sum(np.log(self.get_probabilities(counts, redshift_ranges)))
+
+    def get_probabilities(self, counts, redshift_ranges):
+        """ Returns the poisson statistics applied to each cases """
+        return stats.poisson.pmf(counts,
+                                 self.get_expectedrate(redshift_ranges))
+
+    def get_cumuprob(self, counts, redshift_ranges):
+        """ Returns the cumulative poisson statistics """
+        return stats.poisson.cdf(counts,
+                                 self.get_expectedrate(redshift_ranges))
+
+    # =================================================================== #
+    #                               Properties                            #
+    # =================================================================== #
+
+    @property
+    def nrateparameters(self):
+        """ """
+        return len(self.RATEPARAMETERS)
+
+    @property
+    def nmissedparameters(self):
+        """ """
+        return len(self.MISSEDPARAMETERS)
+
+
+# =========================================================================== #
+#                                                                             #
+#                                RATE MODELS                                  #
+#                                                                             #
+# =========================================================================== #
+
+class VolumeRateModel(BaseObject):
+    """ """
+    RATEPARAMETERS = ["a"]
+
+    # boundaries
+    a_boundaries = [0, None]
+
+    def get_logprior(self):
+        """ """
+        return 0
+
+    def _get_rate_(self, redshifts):
+        """ """
+        return self.paramrate['a']/self.VOLUME_SCALE *\
+            cosmo.comoving_volume(redshifts).value
+
+    def get_rate(self, redshift_ranges):
+        """ """
+        # Could use self.paramrate
+        return self._get_rate_(redshift_ranges[1])\
+            - self._get_rate_(redshift_ranges[0])
+
+
+class PerrettRateModel(VolumeRateModel):
+    """ """
+    RATEPARAMETERS = ["a"]
+
+    def _get_rate_(self, redshifts):
+        """ See eq. 6 of https://arxiv.org/pdf/1811.02379.pdf """
+        return self.paramrate['a'] * (1.75 * 1e-5 * (1+redshifts)**2.11)
+
+
+# =========================================================================== #
+#                                                                             #
+#                                MISSED MODELS                                #
+#                                                                             #
+# =========================================================================== #
+
+
+class NoMissedModel(BaseObject):
+    """ """
+    MISSEDPARAMETERS = []
+
+    def _get_missedrate_(self, redshifts):
+        """ """
+        return 0
+
+    def get_missedrate(self, redshift_ranges):
+        """ """
+        return 0
+
+
+class ConstMissedModel(BaseObject):
+    """ """
+    MISSEDPARAMETERS = ['zmax']
+
+    def _get_missedrate_(self, redshifts):
+        """ """
+        flag_up = redshifts > self.parammissed['zmax']
+        missed = np.zeros(len(redshifts))
+
+        missed[flag_up] = -10
+
+        return missed
+
+    def get_missedrate(self, redshift_ranges):
+        """ """
+        # Could use self.paramrate
+        return self._get_missedrate_(redshift_ranges[1])
+
+
+class ExpoMissedModel(BaseObject):
+    """ """
+    MISSEDPARAMETERS = ["b", "zmax", "zc"]
+
+    # boundaries
+    b_boundaries = [0, None]
+    zmax_boundaries = [0, None]
+    zc_boundaries = [1e-5, None]
+
+    def _get_missedrate_(self, redshifts):
+        """ """
+        flag_up = redshifts > self.parammissed['zmax']
+        missed = np.zeros(len(redshifts))
+
+        missed[flag_up] = \
+            self.parammissed['b']/self.VOLUME_SCALE\
+            * np.exp(redshifts[flag_up]/self.parammissed['zc'])
+
+        return missed
+
+    def get_missedrate(self, redshift_ranges):
+        """ """
+        return self._get_missedrate_(redshift_ranges[1])
+
+
+class VolumeMissedModel(BaseObject):
+    """ """
+    MISSEDPARAMETERS = ['b', 'zmax']
+
+    # boundaries
+    b_boundaries = [0, None]
+    zmax_boundaries = [0, None]
+
+    def _get_missedrate_(self, redshifts):
+        """ """
+        flag_up = redshifts > self.parammissed['zmax']
+        missed = np.zeros(len(redshifts))
+
+        missed[flag_up] = self.parammissed['b']/self.VOLUME_SCALE *\
+            cosmo.comoving_volume(redshifts[flag_up]).value
+
+        return np.asarray(missed)
+
+    def get_missedrate(self, redshift_ranges):
+        """ """
+        return self._get_missedrate_(redshift_ranges[1])\
+            - self._get_missedrate_(redshift_ranges[0])
+
+
+# =========================================================================== #
+#                                                                             #
+#                                TOTAL MODELS                                 #
+#                                                                             #
+# =========================================================================== #
+
+
+class VolumeNoModel(VolumeRateModel,
+                    NoMissedModel,
+                    _RateModelStructure_):
+    """ """
+
+
+class PerrettNoModel(PerrettRateModel,
+                     NoMissedModel,
+                     _RateModelStructure_):
+    """ """
+
+
+class VolumeExpoModel(VolumeRateModel,
+                      ExpoMissedModel,
+                      _RateModelStructure_):
+    """ """
+
+
+class VolumeConstModel(VolumeRateModel,
+                       ConstMissedModel,
+                       _RateModelStructure_):
+    """ """
+
+
+class VolumeVolumeModel(VolumeRateModel,
+                        VolumeMissedModel,
+                        _RateModelStructure_):
+    """ """
+
+# =========================================================================== #
+#                                                                             #
+#                                SHOW P-VALUE                                 #
+#                                                                             #
+# =========================================================================== #
+
+    # ------------------------------------------------------------------- #
+    #                               SETTER                                #
+    # ------------------------------------------------------------------- #
 
 
 def zmax_poisson(survey, rawdata, guess, loops, itsc):
-    """Calculates the cdf evolution, and get the intersection.
-    Returns list of z_linspace, cdf med and std, and zinf, max, sup)"""
+    """Calculates the cdf evolution, and get the intersection. itsc must be a
+    dict of lists of itsc_inf, itsc_med and itsc_sup.
+    Returns list of z_linspace, cdf med and std, and (zinf, max, sup)"""
     import math
     from scipy import interpolate
 
@@ -333,9 +608,9 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
     p_std = np.std(np.std(p_zintp, axis=1), axis=0)
 
     # construct list of horizontal values for intersection
-    horiz_med = [itsc for i in range(len(p_med))]
-    horiz_inf = [1.05*itsc for i in range(len(p_med))]
-    horiz_sup = [0.95*itsc for i in range(len(p_med))]
+    horiz_inf = [itsc[survey][0] for i in range(len(p_med))]
+    horiz_med = [itsc[survey][1] for i in range(len(p_med))]
+    horiz_sup = [itsc[survey][2] for i in range(len(p_med))]
     # gives the indice of intersection with p_med
     ind_med = np.argwhere(np.diff(np.sign(p_med - horiz_med))).flatten()[-1]
     # same with p_med - p_std
@@ -348,6 +623,10 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
             round(z_intp[ind_sup], 4)]
 
     return(z_intp, p_med, p_std, zmax)
+
+    # ------------------------------------------------------------------- #
+    #                               PLOTTER                               #
+    # ------------------------------------------------------------------- #
 
 
 def zmax_pshow(z_lins, meds, stds, z_max, itsc,
@@ -376,31 +655,29 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
                      color=colors[survey],
                      lw=1.0)
             ax.plot(z_max[survey][1],
-                    itsc,
+                    itsc[survey][1],
                     color="black", marker='o')
+            ax.hline(itsc[survey][1],
+                     color="0.3", lw=1.0)
+# label=r"$z_{\mathrm{max,med}}$")
         if show_infsup:
             ax.vline(z_max[survey][0],
                      color=colors[survey],
                      lw=1.0)
             ax.plot(z_max[survey][0],
-                    1.05*itsc,
+                    itsc[survey][0],
                     color=".7", marker='o')
+            ax.hline(itsc[survey][0],
+                     color="0.3", lw=1.0)
+# label=r"$z_{\mathrm{max,inf/sup}}$")
             ax.vline(z_max[survey][2],
                      color=colors[survey],
                      lw=1.0)
             ax.plot(z_max[survey][2],
-                    0.95*itsc,
+                    itsc[survey][2],
                     color=".7", marker='o')
-
-    if show_itsc:
-        ax.hline(itsc,
-                 color="0.3", lw=1.0)
-
-    if show_infsup:
-        ax.hline(.95*itsc,
-                 color="0.3", lw=1.0)
-        ax.hline(1.05*itsc,
-                 color="0.3", lw=1.0)
+            ax.hline(itsc[survey][2],
+                     color="0.3", lw=1.0)
 
     ax.tick_params(direction='in',
                    length=5, width=1,
@@ -422,270 +699,3 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
     plt.title(r'$\mathrm{Evolution\,\,of\,\,poisson\,\,cdf\,\,with\,\,}$' +
               r'$\mathrm{median\,\,for\,\,surveys}$',
               fontsize='x-large')
-
-
-#
-# MODEL
-#
-
-
-class _RateModelStructure_(BaseModel):
-    """ """
-    VOLUME_SCALE = 1e8
-    RATEPARAMETERS = []
-    MISSEDPARAMETERS = []
-
-    def __new__(cls, *arg, **kwarg):
-        """ Black Magic allowing generalization of Polynomial models """
-        cls.FREEPARAMETERS = cls.RATEPARAMETERS + cls.MISSEDPARAMETERS
-        return super(_RateModelStructure_, cls).__new__(cls)
-
-    def setup(self, parameters):
-        """ """
-        if self.nmissedparameters > 0:
-            self.paramrate = {k: v for k, v in
-                              zip(self.RATEPARAMETERS,
-                                  parameters[:self.nrateparameters])}
-            self.parammissed = {k: v for k, v in
-                                zip(self.MISSEDPARAMETERS,
-                                    parameters[self.nrateparameters:])}
-
-        elif self.nrateparameters == 1:
-            self.paramrate = {self.RATEPARAMETERS[0]: parameters}
-
-        else:
-            self.paramrate = {k: v for k, v in zip(self.RATEPARAMETERS,
-                                                   parameters)}
-
-    # --------- #
-    #  Model    #
-    # --------- #
-
-    def get_model(self, *args):
-        """ """
-        return self.get_expectedrate(*args)
-
-    #  Nature - Missed
-    def get_expectedrate(self, redshift_ranges):
-        """ """
-        return self.get_rate(redshift_ranges)\
-            - self.get_missedrate(redshift_ranges)
-
-    def get_rate(self, redshift_ranges):
-        """ """
-        # Could use self.paramrate
-        raise\
-            NotImplementedError(
-                "Your RateModel class must define `get_rate()` ")
-
-    def get_missedrate(self, redshift_ranges):
-        """ """
-        # Could use self.missedrate
-        raise\
-            NotImplementedError(
-                "Your RateModel class must define `get_missedrate()` ")
-
-    # ----------- #
-    # Likelihood  #
-    # ----------- #
-
-    def get_logprob(self, *args):
-        """ """
-        return self.get_loglikelihood(*args) + self.get_logpriors()
-
-    def get_logpriors(self):
-        """ """
-        return 0
-
-    def get_loglikelihood(self, counts, redshift_ranges):
-        """ """
-        # poisson.pmf(k, mu) = probability to observe k counts\
-        # given that we expect mu
-        return np.sum(np.log(self.get_probabilities(counts, redshift_ranges)))
-
-    def get_probabilities(self, counts, redshift_ranges):
-        """ Returns the poisson statistics applied to each cases """
-        return stats.poisson.pmf(counts,
-                                 self.get_expectedrate(redshift_ranges))
-
-    def get_cumuprob(self, counts, redshift_ranges):
-        """ Returns the cumulative poisson statistics """
-        return stats.poisson.cdf(counts,
-                                 self.get_expectedrate(redshift_ranges))
-
-    # ================= #
-    #  Properties       #
-    # ================= #
-
-    @property
-    def nrateparameters(self):
-        """ """
-        return len(self.RATEPARAMETERS)
-
-    @property
-    def nmissedparameters(self):
-        """ """
-        return len(self.MISSEDPARAMETERS)
-
-
-# ==================== #
-#                      #
-#  RATE MODELS         #
-#                      #
-# ==================== #
-
-class VolumeRateModel(BaseObject):
-    """ """
-    RATEPARAMETERS = ["a"]
-
-    # boundaries
-    a_boundaries = [0, None]
-
-    def get_logprior(self):
-        """ """
-        return 0
-
-    def _get_rate_(self, redshifts):
-        """ """
-        return self.paramrate['a']/self.VOLUME_SCALE *\
-            cosmo.comoving_volume(redshifts).value
-
-    def get_rate(self, redshift_ranges):
-        """ """
-        # Could use self.paramrate
-        return self._get_rate_(redshift_ranges[1])\
-            - self._get_rate_(redshift_ranges[0])
-
-
-class PerrettRateModel(VolumeRateModel):
-    """ """
-    RATEPARAMETERS = ["a"]
-
-    def _get_rate_(self, redshifts):
-        """ See eq. 6 of https://arxiv.org/pdf/1811.02379.pdf """
-        return self.paramrate['a'] * (1.75 * 1e-5 * (1+redshifts)**2.11)
-
-
-# ==================== #
-#                      #
-#  MISSED MODELS       #
-#                      #
-# ==================== #
-
-
-class NoMissedModel(BaseObject):
-    """ """
-    MISSEDPARAMETERS = []
-
-    def _get_missedrate_(self, redshifts):
-        """ """
-        return 0
-
-    def get_missedrate(self, redshift_ranges):
-        """ """
-        return 0
-
-
-class ConstMissedModel(BaseObject):
-    """ """
-    MISSEDPARAMETERS = ['zmax']
-
-    def _get_missedrate_(self, redshifts):
-        """ """
-        flag_up = redshifts > self.parammissed['zmax']
-        missed = np.zeros(len(redshifts))
-
-        missed[flag_up] = -10
-
-        return missed
-
-    def get_missedrate(self, redshift_ranges):
-        """ """
-        # Could use self.paramrate
-        return self._get_missedrate_(redshift_ranges[1])
-
-
-class ExpoMissedModel(BaseObject):
-    """ """
-    MISSEDPARAMETERS = ["b", "zmax", "zc"]
-
-    # boundaries
-    b_boundaries = [0, None]
-    zmax_boundaries = [0, None]
-    zc_boundaries = [1e-5, None]
-
-    def _get_missedrate_(self, redshifts):
-        """ """
-        flag_up = redshifts > self.parammissed['zmax']
-        missed = np.zeros(len(redshifts))
-
-        missed[flag_up] = \
-            self.parammissed['b']/self.VOLUME_SCALE\
-            * np.exp(redshifts[flag_up]/self.parammissed['zc'])
-
-        return missed
-
-    def get_missedrate(self, redshift_ranges):
-        """ """
-        return self._get_missedrate_(redshift_ranges[1])
-
-
-class VolumeMissedModel(BaseObject):
-    """ """
-    MISSEDPARAMETERS = ['b', 'zmax']
-
-    # boundaries
-    b_boundaries = [0, None]
-    zmax_boundaries = [0, None]
-
-    def _get_missedrate_(self, redshifts):
-        """ """
-        flag_up = redshifts > self.parammissed['zmax']
-        missed = np.zeros(len(redshifts))
-
-        missed[flag_up] = self.parammissed['b']/self.VOLUME_SCALE *\
-            cosmo.comoving_volume(redshifts[flag_up]).value
-
-        return np.asarray(missed)
-
-    def get_missedrate(self, redshift_ranges):
-        """ """
-        return self._get_missedrate_(redshift_ranges[1])\
-            - self._get_missedrate_(redshift_ranges[0])
-
-
-# ==================== #
-#                      #
-#   TOTAL MODELS       #
-#                      #
-# ==================== #
-
-
-class VolumeNoModel(VolumeRateModel,
-                    NoMissedModel,
-                    _RateModelStructure_):
-    """ """
-
-
-class PerrettNoModel(PerrettRateModel,
-                     NoMissedModel,
-                     _RateModelStructure_):
-    """ """
-
-
-class VolumeExpoModel(VolumeRateModel,
-                      ExpoMissedModel,
-                      _RateModelStructure_):
-    """ """
-
-
-class VolumeConstModel(VolumeRateModel,
-                       ConstMissedModel,
-                       _RateModelStructure_):
-    """ """
-
-
-class VolumeVolumeModel(VolumeRateModel,
-                        VolumeMissedModel,
-                        _RateModelStructure_):
-    """ """
