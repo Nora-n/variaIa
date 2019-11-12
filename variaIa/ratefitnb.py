@@ -7,26 +7,49 @@ from astropy.cosmology import Planck15 as cosmo
 import matplotlib.pyplot as plt
 import iminuit as im
 
+dict_zmax = {'SDSS': [0.1728, 0.2039, 0.2301],
+             'PS1': [0.1821, 0.2732, 0.3568],
+             'SNLS': [0.5937, 0.6162, 0.6565]}
+
+# =========================================================================== #
+#                                                                             #
+#                                   RATEFIT                                   #
+#                                                                             #
+# =========================================================================== #
+
 
 class RateFit():
     ''' '''
 
+    # =================================================================== #
+    #                               Parameters                            #
+    # =================================================================== #
+
     FREEPARAMETERS = ['a', 'zmax']
     VOLUME_SCALE = 1e8
 
-#   ################################### SETTER ################################
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
 
-    def set_data(self, dataz):
+    # ------------------------------------------------------------------- #
+    #                               SETTER                                #
+    # ------------------------------------------------------------------- #
+
+    def set_data(self, dataz, survey):
         '''Donne la liste du nombre observé de SNe par bin'''
         self.data = np.sort(dataz)
         self.counts = np.asarray([(i+1)*1 for i in range(len(dataz))]).T
+        self.survey = survey
 
     def set_param(self, param):
         '''Créé le dico des noms des params et de leurs valeurs'''
         self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
                                            np.atleast_1d(param))}
 
-#   ################################### FITTER ################################
+    # ------------------------------------------------------------------- #
+    #                               FITTER                                #
+    # ------------------------------------------------------------------- #
 
     def get_cuts(self, zmax):
         '''Implémentation de zmax pour le fit'''
@@ -55,9 +78,7 @@ class RateFit():
         """Test of better minimization function"""
         k = len(self.FREEPARAMETERS)
         n = len(self.get_cuts(zmax)['dat'])
-
         DoF = n-k
-
         return(self.get_loglikelihood(a, zmax)/DoF)
 
     def get_aicc(self, a, zmax):
@@ -71,9 +92,7 @@ class RateFit():
         """To have high zmax even with lots of data"""
         k = len(self.FREEPARAMETERS)
         n = len(self.get_cuts(zmax)['dat'])
-
         DoF = n-k
-
         return(self.get_aicc(a, zmax)/DoF)
 
     def get_logprior(self, a, zmax):
@@ -90,7 +109,17 @@ class RateFit():
         else:
             prior_bounds_zmax = 1e10
 
-        used_priors = [prior_bounds_a, prior_bounds_zmax]
+        prior_zmax = -np.log(stats.norm.pdf(zmax,
+                                            dict_zmax[self.survey][1],
+                                            .05))
+
+#        if abs(self.get_cuts(zmax)['counts'][-1]
+#                - self.get_ratemodel(self.get_cuts(zmax)['dat'][-1], a)) < 7:
+#            prior_counts = 0
+#        else:
+#            prior_counts = 1e10
+
+        used_priors = [prior_bounds_a, prior_bounds_zmax, prior_zmax]
         return np.sum(used_priors)
 
     def get_logprob(self, a, zmax):
@@ -107,10 +136,17 @@ class RateFit():
         self.set_param([round(self.m.values['a'], 4),
                         round(self.m.values['zmax'], 4)])
 
-#   ################################### PLOTTER ###############################
+    # ------------------------------------------------------------------- #
+    #                               PLOTTER                               #
+    # ------------------------------------------------------------------- #
 
-    def plot(self, label, guess=None):
+    def plot(self, guess=None):
         '''Trace les données vs le modèle, et modèle fitté (optionnel)'''
+
+        colors = {'SDSS': 'lime',
+                  'PS1': 'blue',
+                  'SNLS': 'red'}
+
         fig = plt.figure(figsize=[8, 5])
         ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
 
@@ -118,8 +154,8 @@ class RateFit():
 
         ax.plot(self.data,
                 self.counts,
-                color='blue',
-                lw=1.0, label=label)
+                color=colors[self.survey],
+                lw=1.0, label=self.survey)
 
         ax.plot(zz,
                 self.get_ratemodel(zz, self.param['a']),
@@ -160,5 +196,5 @@ class RateFit():
         plt.legend(ncol=1, loc='lower right')
 
         plt.title(r'$\mathrm{Evolution\,\,of\,\,poisson\,\,cdf\,\,with\,\,}$' +
-                  r'$\mathrm{median\,\,for\,\,surveys}$',
+                  r'$\mathrm{median\,\,for\,\,}$' + self.survey,
                   fontsize='x-large')
