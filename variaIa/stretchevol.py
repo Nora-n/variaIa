@@ -7,7 +7,6 @@ import iminuit
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-plt.style.use(['classic', 'seaborn-white'])
 
 lssfr_med = -10.82
 
