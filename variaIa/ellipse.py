@@ -4,6 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
+from scipy import optimize
 from matplotlib.patches import Ellipse
 
 c = 9.715611890751e-9  # in pc.s⁻¹
@@ -89,6 +90,18 @@ class ellipse():
                 x1_max.append(x1_lin[np.min(loc)])
         self.x1_max = np.asarray(x1_max)
         self.c_max = c_lin[:len(x1_max)]
+
+    def find_zmax(self, mag_lim, magabs_lim=-18.):
+        return(self.find_z(mag_lim - magabs_lim))
+
+    def find_z(self, distmod, cosmo=None):
+        if cosmo is None:
+            from astropy.cosmology import Planck15
+            cosmo = Planck15
+        return(optimize.fmin(lambda z:
+                             np.abs(cosmo.distmod(z).value
+                                    - distmod),
+                             0.1, disp=0))
 
     # ------------------------------------------------------------------- #
     #                               PLOTTER                               #
