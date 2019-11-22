@@ -6,7 +6,6 @@ from scipy import stats
 from astropy.cosmology import Planck15 as cosmo
 from modefit.baseobjects import BaseModel, BaseFitter, DataHandler, BaseObject
 import matplotlib.pyplot as plt
-plt.style.use(['classic', 'seaborn-white'])
 
 
 """
