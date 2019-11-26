@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import scipy
-import pickle
 import iminuit
 import numpy as np
 import pandas as pd
@@ -10,8 +9,11 @@ import matplotlib.pyplot as plt
 
 lssfr_med = -10.82
 
-with open('../Data/SNF_results', 'rb') as f:
-    res_SNF = pickle.load(f)
+res_SNF = {'a': 0.47715121395809157,
+           'mu_1': 0.3868646937414961,
+           'sigma_1': 0.555465859117784,
+           'mu_2': -1.5209713725396492,
+           'sigma_2': 0.5187834441554329}
 
 snf_a = res_SNF['a']
 snf_mu_1 = res_SNF['mu_1']
