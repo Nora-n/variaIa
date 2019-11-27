@@ -66,8 +66,11 @@ class SimplePlots():
 
     def choice_data(self, zc):
         with open(zc, 'rb') as f:
-            self.z_lins, self.meds, self.stds,\
-                self.z_max, self.itsc = pickle.load(f)
+            if np.size(pickle.load(f)) == 5:
+                self.z_lins, self.meds, self.stds,\
+                    self.z_max, self.itsc = pickle.load(f)
+            else:
+                self.z_max = pickle.load(f)
         self.z_max['SNF'] = [10, 10, 10]
         self.z_max['HST'] = [10, 10, 10]
 
