@@ -327,69 +327,82 @@ class Evol2G2M2S(LssfrStretchDist):
     #                               PLOTTER                               #
     # ------------------------------------------------------------------- #
 
-    def scatter(self, model=True):
+    def scatter(self, model=True, ax=None, show_leg=True,
+                mod_lw=2, lw=.5, elw=1, ealpha=1, s=80,
+                facealpha=1, fontsize='large'):
         '''Trace le nuage de points et les fits
         model=False ne montre que les données du pandas'''
         dgmap = plt.cm.get_cmap('viridis')
-        dg_colors = [dgmap(i) for i in (1-self.py)]
+        dg_colors = [dgmap(i, facealpha) for i in (1-self.py)]
 
-        fig = plt.figure(figsize=[8, 5])
-        ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+        if ax is None:
+            fig = plt.figure(figsize=[8, 5])
+            ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
+        else:
+            fig = ax.figure
 
         if hasattr(self, 'lssfr'):
             ax.scatter(self.lssfr, self.stretch, marker='o',
-                       s=100, linewidths=0.5,
+                       s=s, linewidths=lw,
                        facecolors=dg_colors, edgecolors="0.7",
-                       label='SNe data', zorder=8)
+                       zorder=8)
 
             ax.errorbar(self.lssfr, self.stretch,
                         xerr=[self.lssfr_err_d, self.lssfr_err_u],
                         yerr=self.stretch_err,
-                        ecolor='0.7', alpha=1, ms=0,
+                        ecolor='0.7', alpha=ealpha, ms=0,
+                        lw=elw,
                         ls='none', label=None, zorder=5)
 
         ax.vline(lssfr_med,
-                 color='0.7', alpha=.5, linewidth=2.0)
-
-        x_linspace = np.linspace(self.floor, self.ceil, 3000)
+                 color='0', alpha=1, linewidth=lw)
 
         if model is True:
-            plt.fill_betweenx(x_linspace,
-                              2*self.likelihood_y(x_linspace, 0,
-                                                  self.param['mu_1'],
-                                                  self.param['sigma_1'])
-                              + lssfr_med,
-                              lssfr_med,
-                              facecolor=plt.cm.viridis(0.05, 0.1),
-                              edgecolor=plt.cm.viridis(0.05, 0.8),
-                              lw=2, label='model young')
-
-            plt.fill_betweenx(x_linspace,
-                              -3*self.likelihood_o(x_linspace, 0,
-                                                   self.param['a'],
-                                                   self.param['mu_1'],
-                                                   self.param['sigma_1'],
-                                                   self.param['mu_2'],
-                                                   self.param['sigma_2'])
-                              + lssfr_med,
-                              lssfr_med,
-                              facecolor=plt.cm.viridis(0.95, 0.1),
-                              edgecolor=plt.cm.viridis(0.95, 0.8),
-                              lw=2, label='model old')
-
-        ax.tick_params(direction='in',
-                       length=5, width=1,
-                       labelsize=15,
-                       top=True, right=True)
+            self.show_model(ax=ax, shift=lssfr_med, lw=mod_lw)
 
         ax.set_ylim([self.floor, self.ceil])
 
-        ax.set_xlabel(r'$\mathrm{log(LsSFR)}$', fontsize='x-large')
-        ax.set_ylabel(r'$\mathrm{x}_1$', fontsize='x-large')
+        ax.set_xlabel(r'$\mathrm{log(LsSFR)}$', fontsize=fontsize)
+        ax.set_ylabel(r'$\mathrm{x}_1$', fontsize=fontsize)
 
-        plt.legend(ncol=1, loc='upper left')
+        if show_leg:
+            ax.legend(ncol=1, loc='upper left')
 
         # plt.title('1GSNF model', fontsize=20)
+
+    def show_model(self, ax=None, shift=0,
+                   facealpha=0.1, edgealpha=.8, **kwargs):
+        """ """
+        if ax is None:
+            fig = plt.figure(figsize=[8, 5])
+            ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
+        x_linspace = np.linspace(self.floor, self.ceil, 3000)
+
+        ax.fill_betweenx(x_linspace,
+                         2*self.likelihood_y(x_linspace, 0,
+                                             self.param['mu_1'],
+                                             self.param['sigma_1'])
+                         + shift,
+                         shift,
+                         facecolor=plt.cm.viridis(0.05, facealpha),
+                         edgecolor=plt.cm.viridis(0.05, edgealpha),
+                         label='model young', **kwargs)
+
+
+        ax.fill_betweenx(x_linspace,
+                         -3*self.likelihood_o(x_linspace, 0,
+                                              self.param['a'],
+                                              self.param['mu_1'],
+                                              self.param['sigma_1'],
+                                              self.param['mu_2'],
+                                              self.param['sigma_2'])
+                         + shift,
+                         shift,
+                         facecolor=plt.cm.viridis(0.95, facealpha),
+                         edgecolor=plt.cm.viridis(0.95, edgealpha),
+                         label='model old', **kwargs)
 
 # =========================================================================== #
 #                                 EvolHowellF                                 #
