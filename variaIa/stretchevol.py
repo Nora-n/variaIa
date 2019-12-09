@@ -1129,7 +1129,7 @@ def zmax_impact(zmax):
     # gen = (survey for survey in surveys if survey != 'SNF')
 
     for i in range(len(zmax['SDSS'])):
-        for survey in surveys[:-1]:
+        for survey in surveys[1:]:
             zmax_cuts[survey] = np.where(surv[survey].zCMB.values
                                          < zmax[survey][i])
             z_zcuts[survey] = surv[survey].zCMB.values[zmax_cuts[survey]]
