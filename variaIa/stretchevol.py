@@ -390,7 +390,6 @@ class Evol2G2M2S(LssfrStretchDist):
                          edgecolor=plt.cm.viridis(0.05, edgealpha),
                          label='model young', **kwargs)
 
-
         ax.fill_betweenx(x_linspace,
                          -3*self.likelihood_o(x_linspace, 0,
                                               self.param['a'],
@@ -720,7 +719,7 @@ class Evol3G2M2S(Evol2G2M2S):
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
@@ -735,23 +734,27 @@ class Evol3G2M2S(Evol2G2M2S):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-    def likelihood_o(self, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
-        '''La fonction décrivant le modèle des SNe vieilles'''
-        return a*self.gauss(x, dx, mu_1, sigma_1) + \
-            (1-a)*self.gauss(x, dx, mu_2, sigma_2)
+    def get_a(self, aa):
+        '''Get a in [0, 1] from aa parameter'''
+        return(np.arctan(aa)/np.pi + 0.5)
 
-    def likelihood_tot(self, z, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+    def likelihood_o(self, x, dx, aa, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return self.get_a(aa)*self.gauss(x, dx, mu_1, sigma_1) + \
+            (1-self.get_a(aa))*self.gauss(x, dx, mu_2, sigma_2)
+
+    def likelihood_tot(self, z, x, dx, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-self.delta(z))*self.likelihood_o(x, dx, a, mu_1, sigma_1,
+            (1-self.delta(z))*self.likelihood_o(x, dx, aa, mu_1, sigma_1,
                                                 mu_2, sigma_2)
 
-    def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2):
+    def loglikelihood(self, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
                                                     self.stretchs,
                                                     self.stretchs_err,
-                                                    a, mu_1, sigma_1,
+                                                    aa, mu_1, sigma_1,
                                                     mu_2, sigma_2)))
 
 # =========================================================================== #
@@ -812,7 +815,7 @@ class Evol3G2M2SSNF(Evol3G2M2S):
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
@@ -827,17 +830,17 @@ class Evol3G2M2SSNF(Evol3G2M2S):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-    def likelihood_tot(self, py, x, dx, a, mu_1, sigma_1, mu_2, sigma_2):
+    def likelihood_tot(self, py, x, dx, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         return py*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-py)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2, sigma_2)
+            (1-py)*self.likelihood_o(x, dx, aa, mu_1, sigma_1, mu_2, sigma_2)
 
-    def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2):
+    def loglikelihood(self, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.py,
                                                     self.stretch,
                                                     self.stretch_err,
-                                                    a,
+                                                    aa,
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2)))
 
@@ -1099,7 +1102,9 @@ def zmax_impact(zmax):
     d = pd.read_csv('../Data/data_cheat.csv', sep=' ', index_col='CID')
     d_snf = pd.read_csv('../Data/lssfr_paper_full_sntable.csv', sep=',')
 
-    surv = {'SNF':  d_snf,
+    surv = {'SNF':  d_snf.loc[d_snf['name'].str.contains('SNF|LSQ|PTF',
+                                                         na=False,
+                                                         regex=True)],
             'SDSS': d[d['IDSURVEY'] == 1],
             'PS1':  d[d['IDSURVEY'] == 15],
             'SNLS': d[d['IDSURVEY'] == 4],
@@ -1307,8 +1312,8 @@ def zmax_impact(zmax):
 
         d_mod_comp.append(frame)
 
-        NR_params.append([round(evol3G2M1S.param['a'], 4),
-                          round(evol3G2M1S.param['mu_1'], 4),
-                          round(evol3G2M1S.param['mu_2'], 4)])
+        NR_params.append([round(evol3G2M2S.param['a'], 4),
+                          round(evol3G2M2S.param['mu_1'], 4),
+                          round(evol3G2M2S.param['mu_2'], 4)])
 
     return(d_mod_comp, NR_params)
