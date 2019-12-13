@@ -121,7 +121,7 @@ class LssfrStretchDist(StretchDist):
 
 
 class Evol2G2M2S(LssfrStretchDist):
-    '''Evol Howell'''
+    '''Howell'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -137,6 +137,7 @@ class Evol2G2M2S(LssfrStretchDist):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + '=' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = False
 
     # =================================================================== #
     #                           BaseModel Struc                           #
@@ -409,7 +410,7 @@ class Evol2G2M2S(LssfrStretchDist):
 
 
 class Evol2G2M2SF(Evol2G2M2S):
-    '''Evol Howell Fixed'''
+    '''Howell'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -425,6 +426,7 @@ class Evol2G2M2SF(Evol2G2M2S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = True
 
     # =================================================================== #
     #                               Methods                               #
@@ -453,7 +455,7 @@ class Evol2G2M2SF(Evol2G2M2S):
 
 
 class Evol1G1M1S(Evol2G2M2S):
-    '''Evol 1 gaussienne'''
+    '''Gaussian'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -465,6 +467,7 @@ class Evol1G1M1S(Evol2G2M2S):
     FREEPARAMETERS = ['mu', 'sigma']
     GUESSVAL = [0, 1]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = True
 
     # =================================================================== #
     #                               Methods                               #
@@ -490,7 +493,7 @@ class Evol1G1M1S(Evol2G2M2S):
 
 
 class Evol1G1M2S(Evol2G2M2S):
-    '''Evol Kessler'''
+    '''Assymetric'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -502,6 +505,7 @@ class Evol1G1M2S(Evol2G2M2S):
     FREEPARAMETERS = ['mu', 'sigma_m', 'sigma_p']
     GUESSVAL = [0.973, 1.5, 0.5]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = True
 
     # =================================================================== #
     #                               Methods                               #
@@ -580,7 +584,7 @@ class Evol1G1M2S(Evol2G2M2S):
 
 
 class Evol3G2M1S(Evol2G2M2S):
-    '''Evol NR 1S'''
+    '''Base$-(\sigma_2)$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -594,6 +598,7 @@ class Evol3G2M1S(Evol2G2M2S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = False
 
     # =================================================================== #
     #                               Methods                               #
@@ -627,7 +632,7 @@ class Evol3G2M1S(Evol2G2M2S):
 
 
 class Evol3G2M1SSNF(Evol3G2M1S):
-    '''Evol NR 1S on SNF data'''
+    '''Base$-(\sigma_2)$  on SNf'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -641,6 +646,7 @@ class Evol3G2M1SSNF(Evol3G2M1S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = False
 
     # =================================================================== #
     #                               Methods                               #
@@ -669,7 +675,7 @@ class Evol3G2M1SSNF(Evol3G2M1S):
 
 
 class Evol3G2M1SF(Evol3G2M1S):
-    '''Evol NR 1S Fixed'''
+    '''Base$-(\sigma_2)$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -683,6 +689,7 @@ class Evol3G2M1SF(Evol3G2M1S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = True
 
     # =================================================================== #
     #                               Methods                               #
@@ -711,7 +718,7 @@ class Evol3G2M1SF(Evol3G2M1S):
 
 
 class Evol3G2M2S(Evol2G2M2S):
-    '''Evol NR 2S'''
+    '''Base'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -725,6 +732,7 @@ class Evol3G2M2S(Evol2G2M2S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = False
 
     # =================================================================== #
     #                               Methods                               #
@@ -763,7 +771,7 @@ class Evol3G2M2S(Evol2G2M2S):
 
 
 class Evol3G2M2SF(Evol3G2M2S):
-    '''Evol NR 2S Fixed'''
+    '''Base'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -777,6 +785,7 @@ class Evol3G2M2SF(Evol3G2M2S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = True
 
     # =================================================================== #
     #                               Methods                               #
@@ -807,7 +816,7 @@ class Evol3G2M2SF(Evol3G2M2S):
 
 
 class Evol3G2M2SSNF(Evol3G2M2S):
-    '''Evol NR 2S on SNF data'''
+    '''Base on SNf'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -821,6 +830,7 @@ class Evol3G2M2SSNF(Evol3G2M2S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = False
 
     # =================================================================== #
     #                               Methods                               #
@@ -850,7 +860,7 @@ class Evol3G2M2SSNF(Evol3G2M2S):
 
 
 class Evol3G3M3S(Evol3G2M2S):
-    '''Evol NR 3S'''
+    '''Base$+(\mu_1^{\text{O}}, \sigma_1^{\text{O}})$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -867,6 +877,7 @@ class Evol3G3M3S(Evol3G2M2S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = False
 
     # =================================================================== #
     #                               Methods                               #
@@ -907,7 +918,7 @@ class Evol3G3M3S(Evol3G2M2S):
 
 
 class Evol3G3M3SF(Evol3G3M3S):
-    '''Evol NR 3S Fixed'''
+    '''Base$+(\mu_1^{\text{O}}, \sigma_1^{\text{O}})$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -924,6 +935,7 @@ class Evol3G3M3SF(Evol3G3M3S):
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = True
 
     # =================================================================== #
     #                               Methods                               #
