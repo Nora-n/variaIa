@@ -74,6 +74,21 @@ class StretchDist():
         self.floor = np.floor(np.min(self.stretchs)-0.4)
         self.ceil = np.ceil(np.max(self.stretchs)+0.3)
 
+        self.info = self.delta(self.redshifts)
+
+    def set_pandas(self, pandas, py=True):
+        '''Pour une meilleure utilisation des données'''
+        self.pd = pandas
+
+        self.redshifts = pandas.redshifts
+        self.stretchs = pandas.stretchs
+        self.stretchs_err = pandas.stretchs_err
+
+        if py:
+            self.info = pandas.infor
+        else:
+            self.info = self.delta(pandas.redshifts)
+
 
 # =========================================================================== #
 #                                                                             #
@@ -290,14 +305,14 @@ class Evol2G2M2S(LssfrStretchDist):
         '''La fonction décrivant le modèle des SNe vieilles'''
         return self.gauss(x, dx, mu_2, sigma_2)
 
-    def likelihood_tot(self, z, x, dx, mu_1, sigma_1, mu_2, sigma_2):
+    def likelihood_tot(self, info, x, dx, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-self.delta(z))*self.likelihood_o(x, dx, mu_2, sigma_2)
+        return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-info)*self.likelihood_o(x, dx, mu_2, sigma_2)
 
     def loglikelihood(self, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
                                                     self.stretchs,
                                                     self.stretchs_err,
                                                     mu_1, sigma_1,
@@ -410,7 +425,7 @@ class Evol2G2M2S(LssfrStretchDist):
 
 
 class Evol2G2M2SF(Evol2G2M2S):
-    '''Howell'''
+    '''Howell:$f$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -550,16 +565,15 @@ class Evol1G1M2S(Evol2G2M2S):
         x_linspace = np.linspace(self.floor, self.ceil, 3000)
 
         if model is True:
-            plt.fill_betweenx(2*self.likelihood_tot(x_linspace,
-                                                    np.zeros(len(x_linspace)),
-                                                    self.param['mu'],
-                                                    self.param['sigma_m'],
-                                                    self.param['sigma_p']),
-                              x_linspace,
-                              np.zeros(len(x_linspace)),
-                              facecolor=plt.cm.viridis(0.05, 0.1),
-                              edgecolor=plt.cm.viridis(0.05, 0.8),
-                              lw=2, label='model Kessler')
+            ax.fill_between(x_linspace,
+                            2*self.likelihood_tot(x_linspace,
+                                                  np.zeros(len(x_linspace)),
+                                                  self.param['mu'],
+                                                  self.param['sigma_m'],
+                                                  self.param['sigma_p']),
+                            facecolor=plt.cm.viridis(0.05, 0.1),
+                            edgecolor=plt.cm.viridis(0.05, 0.8),
+                            lw=2)
 
         ax.tick_params(direction='in',
                        length=5, width=1,
@@ -571,12 +585,6 @@ class Evol1G1M2S(Evol2G2M2S):
 
         ax.set_ylabel(r'$\mathrm{Probability}$', fontsize='x-large')
         ax.set_xlabel(r'$\mathrm{x}_1$', fontsize='x-large')
-
-        plt.legend(ncol=1, loc='upper left')
-
-        # plt.title('1GSNF model', fontsize=20)
-
-        plt.show()
 
 # =========================================================================== #
 #                                   EvolNR1S                                  #
@@ -613,14 +621,14 @@ class Evol3G2M1S(Evol2G2M2S):
         return a*self.gauss(x, dx, mu_1, sigma_1) + \
             (1-a)*self.gauss(x, dx, mu_2, sigma_1)
 
-    def likelihood_tot(self, z, x, dx, a, mu_1, sigma_1, mu_2):
+    def likelihood_tot(self, info, x, dx, a, mu_1, sigma_1, mu_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-self.delta(z))*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
+        return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-info)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
 
     def loglikelihood(self, a, mu_1, sigma_1, mu_2):
         '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
                                                     self.stretchs,
                                                     self.stretchs_err,
                                                     a, mu_1, sigma_1,
@@ -632,7 +640,7 @@ class Evol3G2M1S(Evol2G2M2S):
 
 
 class Evol3G2M1SSNF(Evol3G2M1S):
-    '''Base$-(\sigma_2)$  on SNf'''
+    '''Base$-(\sigma_2)$ on SNf'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -675,7 +683,7 @@ class Evol3G2M1SSNF(Evol3G2M1S):
 
 
 class Evol3G2M1SF(Evol3G2M1S):
-    '''Base$-(\sigma_2)$'''
+    '''Base$-(\sigma_2):f$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -751,15 +759,15 @@ class Evol3G2M2S(Evol2G2M2S):
         return self.get_a(aa)*self.gauss(x, dx, mu_1, sigma_1) + \
             (1-self.get_a(aa))*self.gauss(x, dx, mu_2, sigma_2)
 
-    def likelihood_tot(self, z, x, dx, aa, mu_1, sigma_1, mu_2, sigma_2):
+    def likelihood_tot(self, info, x, dx, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-self.delta(z))*self.likelihood_o(x, dx, aa, mu_1, sigma_1,
-                                                mu_2, sigma_2)
+        return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-info)*self.likelihood_o(x, dx, aa, mu_1, sigma_1,
+                                       mu_2, sigma_2)
 
     def loglikelihood(self, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
                                                     self.stretchs,
                                                     self.stretchs_err,
                                                     aa, mu_1, sigma_1,
@@ -771,7 +779,7 @@ class Evol3G2M2S(Evol2G2M2S):
 
 
 class Evol3G2M2SF(Evol3G2M2S):
-    '''Base'''
+    '''Base:$f$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -860,7 +868,7 @@ class Evol3G2M2SSNF(Evol3G2M2S):
 
 
 class Evol3G3M3S(Evol3G2M2S):
-    '''Base$+(\mu_1^{\text{O}}, \sigma_1^{\text{O}})$'''
+    r'''Base$+(\mu_1^{\mathrm{O}}, \sigma_1^{\mathrm{O}})$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -892,19 +900,19 @@ class Evol3G3M3S(Evol3G2M2S):
         return a*self.gauss(x, dx, mu_2, sigma_2) + \
             (1-a)*self.gauss(x, dx, mu_3, sigma_3)
 
-    def likelihood_tot(self, z, x, dx, a,
+    def likelihood_tot(self, info, x, dx, a,
                        mu_1, sigma_1,
                        mu_2, sigma_2,
                        mu_3, sigma_3):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return self.delta(z)*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-self.delta(z))*self.likelihood_o(x, dx, a,
-                                                mu_2, sigma_2,
-                                                mu_3, sigma_3)
+        return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-info)*self.likelihood_o(x, dx, a,
+                                       mu_2, sigma_2,
+                                       mu_3, sigma_3)
 
     def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
         '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
                                                     self.stretchs,
                                                     self.stretchs_err,
                                                     a,
@@ -918,7 +926,7 @@ class Evol3G3M3S(Evol3G2M2S):
 
 
 class Evol3G3M3SF(Evol3G3M3S):
-    '''Base$+(\mu_1^{\text{O}}, \sigma_1^{\text{O}})$'''
+    r'''Base$+(\mu_1^{\mathrm{O}}, \sigma_1^{\mathrm{O}}):f$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -945,7 +953,7 @@ class Evol3G3M3SF(Evol3G3M3S):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-    def likelihood_tot(self, z, x, dx, f, a,
+    def likelihood_tot(self, x, dx, f, a,
                        mu_1, sigma_1,
                        mu_2, sigma_2,
                        mu_3, sigma_3):
@@ -957,8 +965,7 @@ class Evol3G3M3SF(Evol3G3M3S):
 
     def loglikelihood(self, f, a, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
         '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.redshifts,
-                                                    self.stretchs,
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
                                                     self.stretchs_err,
                                                     f, a,
                                                     mu_1, sigma_1,
