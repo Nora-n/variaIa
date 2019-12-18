@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
 import scipy
 import iminuit
 import numpy as np
@@ -88,6 +89,9 @@ class StretchDist():
             self.info = pandas.infor
         else:
             self.info = self.delta(pandas.redshifts)
+
+        self.floor = np.floor(np.min(self.stretchs)-0.4)
+        self.ceil = np.ceil(np.max(self.stretchs)+0.3)
 
 
 # =========================================================================== #
@@ -293,9 +297,15 @@ class Evol2G2M2S(LssfrStretchDist):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-    def gauss(self, x, dx, mu, sigma):
+#    def gauss(self, x, dx, mu, sigma):
+#        '''Le modèle de distribution'''
+#        return scipy.stats.norm.pdf(x, mu, scale=np.sqrt(dx**2+sigma**2))
+
+    def gauss(self, x, dx, mu, sigma, normed=True):
         '''Le modèle de distribution'''
-        return scipy.stats.norm.pdf(x, mu, scale=np.sqrt(dx**2+sigma**2))
+        sigma_eff = np.sqrt(dx**2+sigma**2)
+        norm = 1 if normed else np.sqrt(2*np.pi)*sigma_eff
+        return norm*scipy.stats.norm.pdf(x, mu, scale=sigma_eff)
 
     def likelihood_y(self, x, dx, mu_1, sigma_1):
         '''La fonction décrivant le modèle des SNe jeunes'''
@@ -408,7 +418,7 @@ class Evol2G2M2S(LssfrStretchDist):
 
         ax.fill_betweenx(x_linspace,
                          -3*self.likelihood_o(x_linspace, 0,
-                                              self.param['a'],
+                                              self.param['aa'],
                                               self.param['mu_1'],
                                               self.param['sigma_1'],
                                               self.param['mu_2'],
@@ -508,7 +518,7 @@ class Evol1G1M1S(Evol2G2M2S):
 
 
 class Evol1G1M2S(Evol2G2M2S):
-    '''Assymetric'''
+    '''Asymetric'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -536,11 +546,12 @@ class Evol1G1M2S(Evol2G2M2S):
         likelihood = np.zeros(len(x))
 
         likelihood[flag_up] = self.gauss(x[flag_up], dx[flag_up],
-                                         mu, sigma_p)
+                                         mu, sigma_p, normed=False)
         likelihood[~flag_up] = self.gauss(x[~flag_up], dx[~flag_up],
-                                          mu, sigma_m)  # / .29
-
-        return likelihood
+                                          mu, sigma_m, normed=False)
+        norm = np.sqrt(2*np.pi)*(0.5*np.sqrt(dx**2+sigma_m**2)
+                                 + 0.5*np.sqrt(dx**2+sigma_p**2))
+        return likelihood/norm
 
     def loglikelihood(self, mu, sigma_m, sigma_p):
         '''La fonction à minimiser'''
@@ -559,18 +570,27 @@ class Evol1G1M2S(Evol2G2M2S):
         fig = plt.figure(figsize=[8, 5])
         ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
 
-        ax.vline(self.param['mu'], 0, 2,
-                 color='0.7', alpha=.5, linewidth=2.0)
-
         x_linspace = np.linspace(self.floor, self.ceil, 3000)
 
+        flag_up = x_linspace >= self.param['mu']
+
         if model is True:
-            ax.fill_between(x_linspace,
-                            2*self.likelihood_tot(x_linspace,
-                                                  np.zeros(len(x_linspace)),
-                                                  self.param['mu'],
-                                                  self.param['sigma_m'],
-                                                  self.param['sigma_p']),
+            ax.fill_between(x_linspace[flag_up],
+                            (self.param['sigma_p']) * np.sqrt(np.pi/2) *
+                            self.gauss(x_linspace[flag_up],
+                                       np.zeros(len(x_linspace[flag_up])),
+                                       self.param['mu'],
+                                       self.param['sigma_p']),
+                            facecolor=plt.cm.viridis(0.05, 0.1),
+                            edgecolor=plt.cm.viridis(0.05, 0.8),
+                            lw=2)
+
+            ax.fill_between(x_linspace[~flag_up],
+                            (self.param['sigma_m']) * np.sqrt(np.pi/2) *
+                            self.gauss(x_linspace[~flag_up],
+                                       np.zeros(len(x_linspace[~flag_up])),
+                                       self.param['mu'],
+                                       self.param['sigma_m']),
                             facecolor=plt.cm.viridis(0.05, 0.1),
                             edgecolor=plt.cm.viridis(0.05, 0.8),
                             lw=2)
@@ -1008,7 +1028,8 @@ class MockEvol():
         self.param = dict_param
 
     def set_data(self, z, npoints):
-        '''Given a redshift and a number of data, returns ?'''
+        '''Given a redshift and a number of data, returns the number of
+        young and old SNe'''
         self.z = z
         self.npoints_y = int(self.delta(z)*npoints)
         self.npoints_o = int(self.psi(z)*npoints)
@@ -1336,3 +1357,24 @@ def zmax_impact(zmax):
                           round(evol3G2M2S.param['mu_2'], 4)])
 
     return(d_mod_comp, NR_params)
+
+
+# =========================================================================== #
+#                                                                             #
+#                                  GENERIQUE                                  #
+#                                                                             #
+# =========================================================================== #
+
+
+class fitter(StretchDist):
+    ''' '''
+
+    def set_model(self, classname):
+        self.model = getattr(sys.modules[__name__], classname)
+
+    def fit(self):
+        ''' '''
+        model = self.model()
+        model.set_pandas(self.pd)
+        model.minimize()
+        self.model = model
