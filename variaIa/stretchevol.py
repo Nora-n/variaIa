@@ -59,25 +59,14 @@ class StretchDist():
     '''USAGE :
     evol = stretchevol.EvolCHOICE()
 
-    evol.set_data(redshifts, stretchs, stretchs_err)
+    evol.set_data(dataframe)
 
     evol.minimize()
 
-    evol.scatter()
+    evol.plotter()
     '''
 
-    def set_data(self, redshifts, stretchs, stretchs_err):
-        '''Donne les données des redshifts, stretchs, et stretchs_err'''
-        self.redshifts = redshifts
-        self.stretchs = stretchs
-        self.stretchs_err = stretchs_err
-
-        self.floor = np.floor(np.min(self.stretchs)-0.4)
-        self.ceil = np.ceil(np.max(self.stretchs)+0.3)
-
-        self.info = self.delta(self.redshifts)
-
-    def set_pandas(self, pandas, py=True):
+    def set_data(self, pandas, py=True):
         '''Pour une meilleure utilisation des données'''
         self.pd = pandas
 
@@ -86,47 +75,18 @@ class StretchDist():
         self.stretchs_err = pandas.stretchs_err
 
         if py:
-            self.info = pandas.infor
+            self.info = pandas.infor.values
         else:
             self.info = self.delta(pandas.redshifts)
+
+        self.py = pandas.py
+        self.lssfr = pandas.lssfr
+        self.lssfr_err_d = pandas.lssfr_err_d
+        self.lssfr_err_u = pandas.lssfr_err_u
 
         self.floor = np.floor(np.min(self.stretchs)-0.4)
         self.ceil = np.ceil(np.max(self.stretchs)+0.3)
 
-
-# =========================================================================== #
-#                                                                             #
-#                            LSSFR/SNF STRETCHDIST                            #
-#                                                                             #
-# =========================================================================== #
-
-
-class LssfrStretchDist(StretchDist):
-    '''USAGE :
-    evol = stretchevol.Evol3G2M2SSNF()
-
-    evol.set_lssfr(stretch, stretch_err,
-                   lssfr, lssfr_err_d, lssfr_err_u, py)
-
-    evol.minimize()
-
-    evol.scatter()
-    '''
-
-    def set_lssfr(self, stretch, stretch_err,
-                  lssfr, lssfr_err_d, lssfr_err_u, py):
-        '''Donne les données de lssfr et erreurs up/down + proba j/v'''
-        self.stretch = stretch
-        self.stretch_err = stretch_err
-
-        self.lssfr = lssfr
-        self.lssfr_err_d = lssfr_err_d
-        self.lssfr_err_u = lssfr_err_u
-
-        self.py = py
-
-        self.floor = np.floor(np.min(self.stretch)-0.4)
-        self.ceil = np.ceil(np.max(self.stretch)+0.3)
 
 # =========================================================================== #
 #                                                                             #
@@ -139,7 +99,7 @@ class LssfrStretchDist(StretchDist):
 # =========================================================================== #
 
 
-class Evol2G2M2S(LssfrStretchDist):
+class Evol2G2M2S(StretchDist):
     '''Howell'''
 
     # =================================================================== #
@@ -369,14 +329,14 @@ class Evol2G2M2S(LssfrStretchDist):
             fig = ax.figure
 
         if hasattr(self, 'lssfr'):
-            ax.scatter(self.lssfr, self.stretch, marker='o',
+            ax.scatter(self.lssfr, self.stretchs, marker='o',
                        s=s, linewidths=lw,
                        facecolors=dg_colors, edgecolors="0.7",
                        zorder=8)
 
-            ax.errorbar(self.lssfr, self.stretch,
+            ax.errorbar(self.lssfr, self.stretchs,
                         xerr=[self.lssfr_err_d, self.lssfr_err_u],
-                        yerr=self.stretch_err,
+                        yerr=self.stretchs_err,
                         ecolor='0.7', alpha=ealpha, ms=0,
                         lw=elw,
                         ls='none', label=None, zorder=5)
@@ -692,8 +652,8 @@ class Evol3G2M1SSNF(Evol3G2M1S):
     def loglikelihood(self, a, mu_1, sigma_1, mu_2):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.py,
-                                                    self.stretch,
-                                                    self.stretch_err,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
                                                     a, mu_1, sigma_1,
                                                     mu_2)))
 
@@ -876,8 +836,8 @@ class Evol3G2M2SSNF(Evol3G2M2S):
     def loglikelihood(self, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.py,
-                                                    self.stretch,
-                                                    self.stretch_err,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
                                                     aa,
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2)))
@@ -1375,6 +1335,6 @@ class fitter(StretchDist):
     def fit(self):
         ''' '''
         model = self.model()
-        model.set_pandas(self.pd)
+        model.set_data(self.pd)
         model.minimize()
         self.model = model
