@@ -1326,8 +1326,14 @@ def zmax_impact(zmax):
 # =========================================================================== #
 
 
-class fitter(StretchDist):
-    ''' '''
+class generic(StretchDist):
+    '''Usage:
+       gen = stretchevol.fitter()
+       gen.set_model('model')
+       gen.set_data(pandas)
+       gen.fit()
+
+       gen.model.param'''
 
     def set_model(self, classname):
         self.model = getattr(sys.modules[__name__], classname)
@@ -1337,4 +1343,4 @@ class fitter(StretchDist):
         model = self.model()
         model.set_data(self.pd)
         model.minimize()
-        self.model = model
+        return(model)
