@@ -1,0 +1,7 @@
+,#Data,Survey,AICc asym (this),Free param ,AICc Base SNf,Free param,AICc asym Sco
+0,82,SDSS,216.8,3,217.3,0,219.6
+1,122,PS1,310.0,3,309.9,0,311.2
+2,78,SNLS,202.7,3,215.6,0,206.6
+3,114,SNf,305.5,3,279.1,5,--
+4,396,Total,1034.8,12,1021.6,5,--
+5,282,Total-SNf,729.3,9,742.8,5,737.3
