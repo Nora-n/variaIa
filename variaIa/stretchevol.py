@@ -303,11 +303,11 @@ class Evol2G2M2S(StretchDist):
 
         return mdlogl + k*np.log(len(self.stretchs))
 
-    def get_aicc(self):
+    def get_aic(self):
         k = len(self.FREEPARAMETERS)
         mdlogl = self.get_logl()
 
-        return 2*k + mdlogl + (2*k*(k+1))/(len(self.stretchs)-k-1)
+        return 2*k + mdlogl
 
     # ------------------------------------------------------------------- #
     #                               PLOTTER                               #
@@ -478,7 +478,7 @@ class Evol1G1M1S(Evol2G2M2S):
 
 
 class Evol1G1M2S(Evol2G2M2S):
-    '''Asymetric'''
+    '''Asymmetric'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -1091,7 +1091,7 @@ class MockEvol():
     # ------------------------------------------------------------------- #
 
 def get_proba(best, model):
-    return np.exp((best.get_aicc() - model.get_aicc())/2)
+    return np.exp((best.get_aic() - model.get_aic())/2)
 
     # ------------------------------------------------------------------- #
     #                               SOLVER                                #
@@ -1187,9 +1187,9 @@ def zmax_impact(zmax):
 
         frame.loc[0, 'Name'] = type(evol3G2M1S).__name__
         frame.loc[0, 'ln L'] = evol3G2M1S.get_logl()
-        frame.loc[0, 'AICc'] = evol3G2M1S.get_aicc()
-        frame.loc[0, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol3G2M1S.get_aicc())
+        frame.loc[0, 'AICc'] = evol3G2M1S.get_aic()
+        frame.loc[0, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol3G2M1S.get_aic())
         frame.loc[0, 'Proba'] = get_proba(evol3G2M1S,
                                           evol3G2M1S)
 
@@ -1200,9 +1200,9 @@ def zmax_impact(zmax):
 
         frame.loc[1, 'Name'] = type(evol3G2M2S).__name__
         frame.loc[1, 'ln L'] = evol3G2M2S.get_logl()
-        frame.loc[1, 'AICc'] = evol3G2M2S.get_aicc()
-        frame.loc[1, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol3G2M2S.get_aicc())
+        frame.loc[1, 'AICc'] = evol3G2M2S.get_aic()
+        frame.loc[1, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol3G2M2S.get_aic())
         frame.loc[1, 'Proba'] = get_proba(evol3G2M1S,
                                           evol3G2M2S)
 
@@ -1213,9 +1213,9 @@ def zmax_impact(zmax):
 
         frame.loc[2, 'Name'] = type(evol2G2M2S).__name__
         frame.loc[2, 'ln L'] = evol2G2M2S.get_logl()
-        frame.loc[2, 'AICc'] = evol2G2M2S.get_aicc()
-        frame.loc[2, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol2G2M2S.get_aicc())
+        frame.loc[2, 'AICc'] = evol2G2M2S.get_aic()
+        frame.loc[2, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol2G2M2S.get_aic())
         frame.loc[2, 'Proba'] = get_proba(evol3G2M1S,
                                           evol2G2M2S)
 
@@ -1226,9 +1226,9 @@ def zmax_impact(zmax):
 
         frame.loc[3, 'Name'] = type(evol3G3M3S).__name__
         frame.loc[3, 'ln L'] = evol3G3M3S.get_logl()
-        frame.loc[3, 'AICc'] = evol3G3M3S.get_aicc()
-        frame.loc[3, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol3G3M3S.get_aicc())
+        frame.loc[3, 'AICc'] = evol3G3M3S.get_aic()
+        frame.loc[3, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol3G3M3S.get_aic())
         frame.loc[3, 'Proba'] = get_proba(evol3G2M1S,
                                           evol3G3M3S)
 
@@ -1239,9 +1239,9 @@ def zmax_impact(zmax):
 
         frame.loc[4, 'Name'] = type(evol3G3M3SF).__name__
         frame.loc[4, 'ln L'] = evol3G3M3SF.get_logl()
-        frame.loc[4, 'AICc'] = evol3G3M3SF.get_aicc()
-        frame.loc[4, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol3G3M3SF.get_aicc())
+        frame.loc[4, 'AICc'] = evol3G3M3SF.get_aic()
+        frame.loc[4, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol3G3M3SF.get_aic())
         frame.loc[4, 'Proba'] = get_proba(evol3G2M1S,
                                           evol3G3M3SF)
 
@@ -1252,9 +1252,9 @@ def zmax_impact(zmax):
 
         frame.loc[5, 'Name'] = type(evol3G2M2SF).__name__
         frame.loc[5, 'ln L'] = evol3G2M2SF.get_logl()
-        frame.loc[5, 'AICc'] = evol3G2M2SF.get_aicc()
-        frame.loc[5, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol3G2M2SF.get_aicc())
+        frame.loc[5, 'AICc'] = evol3G2M2SF.get_aic()
+        frame.loc[5, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol3G2M2SF.get_aic())
         frame.loc[5, 'Proba'] = get_proba(evol3G2M1S,
                                           evol3G2M2SF)
 
@@ -1265,9 +1265,9 @@ def zmax_impact(zmax):
 
         frame.loc[6, 'Name'] = type(evol2G2M2SF).__name__
         frame.loc[6, 'ln L'] = evol2G2M2SF.get_logl()
-        frame.loc[6, 'AICc'] = evol2G2M2SF.get_aicc()
-        frame.loc[6, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol2G2M2SF.get_aicc())
+        frame.loc[6, 'AICc'] = evol2G2M2SF.get_aic()
+        frame.loc[6, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol2G2M2SF.get_aic())
         frame.loc[6, 'Proba'] = get_proba(evol3G2M1S,
                                           evol2G2M2SF)
 
@@ -1278,9 +1278,9 @@ def zmax_impact(zmax):
 
         frame.loc[7, 'Name'] = type(evol3G2M1SF).__name__
         frame.loc[7, 'ln L'] = evol3G2M1SF.get_logl()
-        frame.loc[7, 'AICc'] = evol3G2M1SF.get_aicc()
-        frame.loc[7, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol3G2M1SF.get_aicc())
+        frame.loc[7, 'AICc'] = evol3G2M1SF.get_aic()
+        frame.loc[7, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol3G2M1SF.get_aic())
         frame.loc[7, 'Proba'] = get_proba(evol3G2M1S,
                                           evol3G2M1SF)
 
@@ -1291,9 +1291,9 @@ def zmax_impact(zmax):
 
         frame.loc[8, 'Name'] = type(evol1G1M2S).__name__
         frame.loc[8, 'ln L'] = evol1G1M2S.get_logl()
-        frame.loc[8, 'AICc'] = evol1G1M2S.get_aicc()
-        frame.loc[8, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol1G1M2S.get_aicc())
+        frame.loc[8, 'AICc'] = evol1G1M2S.get_aic()
+        frame.loc[8, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol1G1M2S.get_aic())
         frame.loc[8, 'Proba'] = get_proba(evol3G2M1S,
                                           evol1G1M2S)
 
@@ -1304,9 +1304,9 @@ def zmax_impact(zmax):
 
         frame.loc[9, 'Name'] = type(evol1G1M1S).__name__
         frame.loc[9, 'ln L'] = evol1G1M1S.get_logl()
-        frame.loc[9, 'AICc'] = evol1G1M1S.get_aicc()
-        frame.loc[9, '$\Delta$ AICc'] = (evol3G2M1S.get_aicc()
-                                         - evol1G1M1S.get_aicc())
+        frame.loc[9, 'AICc'] = evol1G1M1S.get_aic()
+        frame.loc[9, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
+                                         - evol1G1M1S.get_aic())
         frame.loc[9, 'Proba'] = get_proba(evol3G2M1S,
                                           evol1G1M1S)
 
