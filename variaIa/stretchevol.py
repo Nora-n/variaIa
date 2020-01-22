@@ -84,7 +84,7 @@ class StretchDist():
         self.lssfr_err_d = pandas.lssfr_err_d
         self.lssfr_err_u = pandas.lssfr_err_u
 
-        self.floor = np.floor(np.min(self.stretchs)-0.4)
+        self.floor = np.floor(np.min(self.stretchs)-0.3)
         self.ceil = np.ceil(np.max(self.stretchs)+0.3)
 
 
@@ -114,6 +114,7 @@ class Evol2G2M2S(StretchDist):
                                OLDPARAMETERS)
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + '=' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = False
@@ -156,77 +157,27 @@ class Evol2G2M2S(StretchDist):
              "   self.set_param([self.m_tot.values[k] for k in " +
              "self.FREEPARAMETERS])\n")
 
-        if len(obj.YOUNGPARAMETERS) == 0:
-            return obj
-
         # ----------------------------------------------------------- #
         #                           Plotter                           #
         # ----------------------------------------------------------- #
 
         exec("@make_method(Evol2G2M2S)\n" +
-             "def plotter(self, name=None):\n" +
-             "   '''Trace les fits et les données si lssfr donné'''\n" +
-             "   dgmap = plt.cm.get_cmap('viridis')\n" +
-             "\n" +
-             "   fig = plt.figure(figsize=[8, 5])\n" +
-             "   ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])\n" +
-             "\n" +
-             "   if hasattr(self, 'lssfr'):\n" +
-             "       dg_colors = [dgmap(i) for i in (1-self.py)]\n" +
-             "       ax.scatter(self.lssfr, self.stretch, marker='o',\n" +
-             "                  s=100, linewidths=0.5,\n" +
-             "                  facecolors=dg_colors, edgecolors='0.7',\n" +
-             "                  label='SNe data', zorder=8)\n" +
-             "\n" +
-             "       ax.errorbar(self.lssfr, self.stretch,\n" +
-             "                   xerr=[self.lssfr_err_d, self.lssfr_err_u],\n"
-             +
-             "                   yerr=self.stretch_err,\n" +
-             "                   ecolor='0.7', alpha=1, ms=0,\n" +
-             "                   ls='none', label=None, zorder=5)\n" +
-             "\n" +
-             "   ax.vline(lssfr_med,\n" +
-             "            color='0.7', alpha=.5, linewidth=2.0)\n" +
-             "\n" +
-             "   x_linspace = np.linspace(self.floor, self.ceil, 3000)\n" +
-             "\n" +
-             "   plt.fill_betweenx(x_linspace,\n" +
-             "                     2*self.likelihood_y(x_linspace, 0, \n" +
-             "                                         %s)\n"
-             % (", \n                                         ".join(obj.PLTYOUNG)) +
-             "                     + lssfr_med,\n" +
-             "                     lssfr_med,\n" +
-             "                     facecolor=plt.cm.viridis(0.05, 0.1),\n"
-             +
-             "                     edgecolor=plt.cm.viridis(0.05, 0.8),\n"
-             +
-             "                     lw=2, label='model young')\n"
-             "\n" +
-             "   plt.fill_betweenx(x_linspace,\n" +
-             "                     -3*self.likelihood_o(x_linspace, 0, \n" +
-             "                                         %s)\n"
-             % (", \n                                         ".join(obj.PLTOLD)) +
-             "                     + lssfr_med,\n" +
-             "                     lssfr_med,\n" +
-             "                     facecolor=plt.cm.viridis(0.95, 0.1),\n"
-             +
-             "                     edgecolor=plt.cm.viridis(0.95, 0.8),\n"
-             +
-             "                     lw=2, label='model old')\n" +
-             "\n" +
-             "   ax.tick_params(direction='in',\n" +
-             "                  length=5, width=1,\n" +
-             "                  labelsize=15,\n" +
-             "                  top=True, right=True)\n" +
-             "\n" +
-             "   ax.set_ylim([self.floor, self.ceil])\n" +
-             "\n" +
-             "   ax.set_xlabel(r'$\mathrm{log(LsSFR)}$',fontsize='x-large')\n" +
-             "   ax.set_ylabel(r'$\mathrm{x}_1$', fontsize='x-large')\n" +
-             "\n" +
-             "   plt.legend(ncol=1, loc='upper left')\n" +
-             "\n" +
-             "   plt.title(name, fontsize='x-large')")
+             "def plot_a(self, x):\n" +
+             "    return self.likelihood_tot(x, np.zeros(len(x)), \n" +
+             "                               %s)\n"
+             % (",\n                               ".join(obj.PLTALL)))
+
+        exec("@make_method(Evol2G2M2S)\n" +
+             "def plot_y(self, x_linspace):\n" +
+             "    return self.likelihood_y(x_linspace, 0, \n" +
+             "                            %s)\n"
+             % (",\n                            ".join(obj.PLTYOUNG)))
+
+        exec("@make_method(Evol2G2M2S)\n" +
+             "def plot_o(self, x_linspace):\n" +
+             "    return self.likelihood_o(x_linspace, 0, \n" +
+             "                            %s)\n"
+             % (",\n                            ".join(obj.PLTOLD)))
 
         return obj
 
@@ -313,13 +264,12 @@ class Evol2G2M2S(StretchDist):
     #                               PLOTTER                               #
     # ------------------------------------------------------------------- #
 
-    def scatter(self, model=True, ax=None, show_leg=True,
+    def scatter(self, model=True, ax=None, show_leg=True, lssfr=True,
                 mod_lw=2, lw=.5, elw=1, ealpha=1, s=80,
                 facealpha=1, fontsize='large'):
         '''Trace le nuage de points et les fits
         model=False ne montre que les données du pandas'''
         dgmap = plt.cm.get_cmap('viridis')
-        dg_colors = [dgmap(i, facealpha) for i in (1-self.py)]
 
         if ax is None:
             fig = plt.figure(figsize=[8, 5])
@@ -328,29 +278,33 @@ class Evol2G2M2S(StretchDist):
         else:
             fig = ax.figure
 
-        if hasattr(self, 'lssfr'):
-            ax.scatter(self.lssfr, self.stretchs, marker='o',
+        if lssfr:
+            where = self.pd['lssfr'] != 0
+            dg_colors = [dgmap(i, facealpha) for i in (1-self.py[where])]
+            ax.scatter(self.lssfr[where], self.stretchs[where],
+                       marker='o',
                        s=s, linewidths=lw,
                        facecolors=dg_colors, edgecolors="0.7",
                        zorder=8)
 
-            ax.errorbar(self.lssfr, self.stretchs,
-                        xerr=[self.lssfr_err_d, self.lssfr_err_u],
-                        yerr=self.stretchs_err,
+            ax.errorbar(self.lssfr[where], self.stretchs[where],
+                        xerr=[self.lssfr_err_d[where],
+                              self.lssfr_err_u[where]],
+                        yerr=self.stretchs_err[where],
                         ecolor='0.7', alpha=ealpha, ms=0,
                         lw=elw,
                         ls='none', label=None, zorder=5)
 
-        ax.vline(lssfr_med,
-                 color='0', alpha=1, linewidth=lw)
+            ax.vline(lssfr_med,
+                     color='0', alpha=1, linewidth=lw)
 
-        if model is True:
+            ax.set_ylim([self.floor, self.ceil])
+
+            ax.set_xlabel(r'$\mathrm{log(LsSFR)}$', fontsize=fontsize)
+            ax.set_ylabel(r'$\mathrm{x}_1$', fontsize=fontsize)
+
+        if model:
             self.show_model(ax=ax, shift=lssfr_med, lw=mod_lw)
-
-        ax.set_ylim([self.floor, self.ceil])
-
-        ax.set_xlabel(r'$\mathrm{log(LsSFR)}$', fontsize=fontsize)
-        ax.set_ylabel(r'$\mathrm{x}_1$', fontsize=fontsize)
 
         if show_leg:
             ax.legend(ncol=1, loc='upper left')
@@ -367,9 +321,7 @@ class Evol2G2M2S(StretchDist):
         x_linspace = np.linspace(self.floor, self.ceil, 3000)
 
         ax.fill_betweenx(x_linspace,
-                         2*self.likelihood_y(x_linspace, 0,
-                                             self.param['mu_1'],
-                                             self.param['sigma_1'])
+                         2*self.plot_y(x_linspace)
                          + shift,
                          shift,
                          facecolor=plt.cm.viridis(0.05, facealpha),
@@ -377,17 +329,37 @@ class Evol2G2M2S(StretchDist):
                          label='model young', **kwargs)
 
         ax.fill_betweenx(x_linspace,
-                         -3*self.likelihood_o(x_linspace, 0,
-                                              self.param['aa'],
-                                              self.param['mu_1'],
-                                              self.param['sigma_1'],
-                                              self.param['mu_2'],
-                                              self.param['sigma_2'])
+                         -3*self.plot_o(x_linspace)
                          + shift,
                          shift,
                          facecolor=plt.cm.viridis(0.95, facealpha),
                          edgecolor=plt.cm.viridis(0.95, edgealpha),
                          label='model old', **kwargs)
+
+    def show_model_tot(self, ax=None, fontsize='large', **kwargs):
+        """ """
+        if ax is None:
+            fig = plt.figure(figsize=[8, 5])
+            ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
+        else:
+            fig = ax.figure
+
+        x_linspace = np.linspace(self.floor, self.ceil, 3000)
+
+        ax.plot(x_linspace,
+                self.plot_a(x_linspace),
+                color="C2",
+                label='model', **kwargs)
+
+        ax.hist(self.pd.stretchs, density=True, histtype='step',
+                color="0.5", alpha=1, zorder=8)
+        ax.vline(self.param['mu'],
+                 ymin=0, ymax=np.max(self.plot_a(x_linspace)),
+                 color="C2")
+
+        ax.set_xlabel(r'$\mathrm{x}_1$', fontsize=fontsize)
+        ax.set_ylabel(r'$\mathrm{Probability}$', fontsize=fontsize)
 
 # =========================================================================== #
 #                                 EvolHowellF                                 #
@@ -409,6 +381,7 @@ class Evol2G2M2SF(Evol2G2M2S):
                                OLDPARAMETERS)
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = True
@@ -450,6 +423,9 @@ class Evol1G1M1S(Evol2G2M2S):
     YOUNGPARAMETERS = []
     OLDPARAMETERS = []
     FREEPARAMETERS = ['mu', 'sigma']
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [0, 1]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = True
@@ -488,6 +464,9 @@ class Evol1G1M2S(Evol2G2M2S):
     YOUNGPARAMETERS = []
     OLDPARAMETERS = []
     FREEPARAMETERS = ['mu', 'sigma_m', 'sigma_p']
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [0.973, 1.5, 0.5]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = True
@@ -584,6 +563,7 @@ class Evol3G2M1S(Evol2G2M2S):
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = False
@@ -632,6 +612,7 @@ class Evol3G2M1SSNF(Evol3G2M1S):
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = False
@@ -675,6 +656,7 @@ class Evol3G2M1SF(Evol3G2M1S):
     FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = True
@@ -718,6 +700,7 @@ class Evol3G2M2S(Evol2G2M2S):
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = False
@@ -771,6 +754,7 @@ class Evol3G2M2SF(Evol3G2M2S):
     FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = True
@@ -816,6 +800,7 @@ class Evol3G2M2SSNF(Evol3G2M2S):
     FREEPARAMETERS = OLDPARAMETERS
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = False
@@ -863,6 +848,7 @@ class Evol3G3M3S(Evol3G2M2S):
                       'mu_3', 'sigma_3']
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = False
@@ -921,6 +907,7 @@ class Evol3G3M3SF(Evol3G3M3S):
                       'mu_3', 'sigma_3']
     PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
     PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
     FIXED = True
