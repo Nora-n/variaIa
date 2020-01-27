@@ -100,7 +100,7 @@ class StretchDist():
 
 
 class Evol2G2M2S(StretchDist):
-    '''Howell'''
+    '''Howell+drift'''
 
     # =================================================================== #
     #                              Parameters                             #
