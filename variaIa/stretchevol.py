@@ -100,7 +100,7 @@ class StretchDist():
 
 
 class Evol2G2M2S(StretchDist):
-    '''Howell+R18 drift'''
+    '''Howell+drift'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -312,7 +312,8 @@ class Evol2G2M2S(StretchDist):
         # plt.title('1GSNF model', fontsize=20)
 
     def show_model(self, ax=None, shift=0,
-                   facealpha=0.1, edgealpha=.8, **kwargs):
+                   facealpha=0.1, edgealpha=.8,
+                   o_factor=-3, y_factor=2, **kwargs):
         """ """
         if ax is None:
             fig = plt.figure(figsize=[8, 5])
@@ -321,7 +322,7 @@ class Evol2G2M2S(StretchDist):
         x_linspace = np.linspace(self.floor, self.ceil, 3000)
 
         ax.fill_betweenx(x_linspace,
-                         2*self.plot_y(x_linspace)
+                         y_factor*self.plot_y(x_linspace)
                          + shift,
                          shift,
                          facecolor=plt.cm.viridis(0.05, facealpha),
@@ -329,7 +330,7 @@ class Evol2G2M2S(StretchDist):
                          label='model young', **kwargs)
 
         ax.fill_betweenx(x_linspace,
-                         -3*self.plot_o(x_linspace)
+                         o_factor*self.plot_o(x_linspace)
                          + shift,
                          shift,
                          facecolor=plt.cm.viridis(0.95, facealpha),
@@ -367,7 +368,7 @@ class Evol2G2M2S(StretchDist):
 
 
 class Evol2G2M2SF(Evol2G2M2S):
-    '''Howell:$f$'''
+    '''Howell:const'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -742,7 +743,7 @@ class Evol3G2M2S(Evol2G2M2S):
 
 
 class Evol3G2M2SF(Evol3G2M2S):
-    '''Base:$f$'''
+    '''Base:const'''
 
     # =================================================================== #
     #                              Parameters                             #
