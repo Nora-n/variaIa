@@ -5,7 +5,6 @@ import sys
 import scipy
 import iminuit
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 
 lssfr_med = -10.82
@@ -86,6 +85,33 @@ class StretchDist():
 
         self.floor = np.floor(np.min(self.stretchs)-0.3)
         self.ceil = np.ceil(np.max(self.stretchs)+0.3)
+
+
+# =========================================================================== #
+#                                                                             #
+#                                  GENERIQUE                                  #
+#                                                                             #
+# =========================================================================== #
+
+
+class generic(StretchDist):
+    '''Usage:
+       gen = stretchevol.fitter()
+       gen.set_model('model')
+       gen.set_data(pandas)
+       gen.fit()
+
+       gen.model.param'''
+
+    def set_model(self, classname):
+        self.model = getattr(sys.modules[__name__], classname)
+
+    def fit(self):
+        ''' '''
+        model = self.model()
+        model.set_data(self.pd)
+        model.minimize()
+        return(model)
 
 
 # =========================================================================== #
@@ -208,10 +234,6 @@ class Evol2G2M2S(StretchDist):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-#    def gauss(self, x, dx, mu, sigma):
-#        '''Le modèle de distribution'''
-#        return scipy.stats.norm.pdf(x, mu, scale=np.sqrt(dx**2+sigma**2))
-
     def gauss(self, x, dx, mu, sigma, normed=True):
         '''Le modèle de distribution'''
         sigma_eff = np.sqrt(dx**2+sigma**2)
@@ -259,6 +281,39 @@ class Evol2G2M2S(StretchDist):
         mdlogl = self.get_logl()
 
         return 2*k + mdlogl
+
+    # ------------------------------------------------------------------- #
+    #                              CHI2CALC                               #
+    # ------------------------------------------------------------------- #
+
+    def gauss_calc(self, x, mu, sigma, normed=True):
+        '''Le modèle de distribution'''
+        sigma_eff = np.sqrt(sigma**2)
+        norm = 1 if normed else np.sqrt(2*np.pi)*sigma_eff
+        return norm*np.exp((x-mu)**2/sigma**2)
+
+    def likelihood_y_calc(self, x, mu_1, sigma_1):
+        '''La fonction décrivant le modèle des SNe jeunes'''
+        return self.gauss_calc(x, mu_1, sigma_1)
+
+    def likelihood_o_calc(self, x, mu_2, sigma_2):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return self.gauss_calc(x, mu_2, sigma_2)
+
+    def likelihood_tot_calc(self, info, x, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return info*self.likelihood_y_calc(x, mu_1, sigma_1) + \
+            (1-info)*self.likelihood_o_calc(x, mu_2, sigma_2)
+
+    def loglikelihood_calc(self):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot_calc(self.info,
+                                                         self.stretchs,
+                                                         self.param['mu_1'],
+                                                         self.param['sigma_1'],
+                                                         self.param['mu_2'],
+                                                         self.param['sigma_2']
+                                                         )))
 
     # ------------------------------------------------------------------- #
     #                               PLOTTER                               #
@@ -408,6 +463,25 @@ class Evol2G2M2SF(Evol2G2M2S):
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2)))
 
+    # ------------------------------------------------------------------- #
+    #                              CHI2CALC                               #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_tot_calc(self, f, x, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return f*self.likelihood_y_calc(x, mu_1, sigma_1) + \
+            (1-f)*self.likelihood_o_calc(x, mu_2, sigma_2)
+
+    def loglikelihood_calc(self):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot_calc(self.param['f'],
+                                                         self.stretchs,
+                                                         self.param['mu_1'],
+                                                         self.param['sigma_1'],
+                                                         self.param['mu_2'],
+                                                         self.param['sigma_2']
+                                                         )))
+
 # =========================================================================== #
 #                                 EvolSimple                                  #
 # =========================================================================== #
@@ -449,6 +523,20 @@ class Evol1G1M1S(Evol2G2M2S):
                                                     self.stretchs_err,
                                                     mu, sigma)))
 
+    # ------------------------------------------------------------------- #
+    #                              CHI2CALC                               #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_tot_calc(self, x, mu, sigma):
+        '''La fonction de distribution'''
+        return self.gauss_calc(x, mu, sigma)
+
+    def loglikelihood_calc(self):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot_calc(self.stretchs,
+                                                         self.param['mu'],
+                                                         self.param['sigma'])))
+
 # =========================================================================== #
 #                                 EvolKessler                                 #
 # =========================================================================== #
@@ -484,7 +572,6 @@ class Evol1G1M2S(Evol2G2M2S):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         flag_up = x >= mu
         likelihood = np.zeros(len(x))
-
         likelihood[flag_up] = self.gauss(x[flag_up], dx[flag_up],
                                          mu, sigma_p, normed=False)
         likelihood[~flag_up] = self.gauss(x[~flag_up], dx[~flag_up],
@@ -499,6 +586,32 @@ class Evol1G1M2S(Evol2G2M2S):
                                                     self.stretchs_err,
                                                     mu,
                                                     sigma_m, sigma_p)))
+
+    # ------------------------------------------------------------------- #
+    #                              CHI2CALC                               #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_tot_calc(self, x, mu, sigma_m, sigma_p):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        flag_up = x >= mu
+        likelihood = np.zeros(len(x))
+        likelihood[flag_up] = self.gauss_calc(x[flag_up],
+                                              mu, sigma_p,
+                                              normed=False)
+        likelihood[~flag_up] = self.gauss_calc(x[~flag_up],
+                                               mu, sigma_m,
+                                               normed=False)
+        norm = np.sqrt(2*np.pi)*(0.5*np.sqrt(sigma_m**2)
+                                 + 0.5*np.sqrt(sigma_p**2))
+        return likelihood/norm
+
+    def loglikelihood_calc(self):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    self.param['mu'],
+                                                    self.param['sigma_m'],
+                                                    self.param['sigma_p'])))
 
     # ------------------------------------------------------------------- #
     #                               PLOTTER                               #
@@ -595,49 +708,28 @@ class Evol3G2M1S(Evol2G2M2S):
                                                     a, mu_1, sigma_1,
                                                     mu_2)))
 
-# =========================================================================== #
-#                                  EvolNR1SNF                                 #
-# =========================================================================== #
-
-
-class Evol3G2M1SSNF(Evol3G2M1S):
-    '''Base$-(\sigma_2)$ on SNf'''
-
-    # =================================================================== #
-    #                              Parameters                             #
-    # =================================================================== #
-
-    GLOBALPARAMETERS = []
-    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2']
-    FREEPARAMETERS = OLDPARAMETERS
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
-    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
-    FIXED = False
-
-    # =================================================================== #
-    #                               Methods                               #
-    # =================================================================== #
-
     # ------------------------------------------------------------------- #
-    #                               FITTER                                #
+    #                              CHI2CALC                               #
     # ------------------------------------------------------------------- #
 
-    def likelihood_tot(self, py, x, dx, a, mu_1, sigma_1, mu_2):
+    def likelihood_o_calc(self, x, a, mu_1, sigma_1, mu_2):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return a*self.gauss_calc(x, mu_1, sigma_1) + \
+            (1-a)*self.gauss_calc(x, mu_2, sigma_1)
+
+    def likelihood_tot_calc(self, info, x, a, mu_1, sigma_1, mu_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return py*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-py)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
+        return info*self.likelihood_y_calc(x, mu_1, sigma_1) + \
+            (1-info)*self.likelihood_o_calc(x, mu_1, sigma_1, mu_2)
 
-    def loglikelihood(self, a, mu_1, sigma_1, mu_2):
+    def loglikelihood_calc(self):
         '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.py,
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
                                                     self.stretchs,
-                                                    self.stretchs_err,
-                                                    a, mu_1, sigma_1,
-                                                    mu_2)))
+                                                    self.param['a'],
+                                                    self.param['mu_1'],
+                                                    self.param['sigma_1'],
+                                                    self.param['mu_2'])))
 
 # =========================================================================== #
 #                                   EvolNR1S                                  #
@@ -780,51 +872,6 @@ class Evol3G2M2SF(Evol3G2M2S):
         return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
                                                     self.stretchs_err,
                                                     f, a,
-                                                    mu_1, sigma_1,
-                                                    mu_2, sigma_2)))
-
-# =========================================================================== #
-#                                  EvolNR2SNF                                 #
-# =========================================================================== #
-
-
-class Evol3G2M2SSNF(Evol3G2M2S):
-    '''Base on SNf'''
-
-    # =================================================================== #
-    #                              Parameters                             #
-    # =================================================================== #
-
-    GLOBALPARAMETERS = []
-    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
-    FREEPARAMETERS = OLDPARAMETERS
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
-    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
-    FIXED = False
-
-    # =================================================================== #
-    #                               Methods                               #
-    # =================================================================== #
-
-    # ------------------------------------------------------------------- #
-    #                               FITTER                                #
-    # ------------------------------------------------------------------- #
-
-    def likelihood_tot(self, py, x, dx, aa, mu_1, sigma_1, mu_2, sigma_2):
-        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return py*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-py)*self.likelihood_o(x, dx, aa, mu_1, sigma_1, mu_2, sigma_2)
-
-    def loglikelihood(self, aa, mu_1, sigma_1, mu_2, sigma_2):
-        '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.py,
-                                                    self.stretchs,
-                                                    self.stretchs_err,
-                                                    aa,
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2)))
 
@@ -1066,269 +1113,3 @@ class MockEvol():
                    fancybox=True, shadow=True)
 
         plt.title('Stretch distribution at $z = $' + str(self.z), fontsize=20)
-
-
-# =========================================================================== #
-#                                                                             #
-#                                  COMPARISON                                 #
-#                                                                             #
-# =========================================================================== #
-
-    # ------------------------------------------------------------------- #
-    #                               EXTFUNC                               #
-    # ------------------------------------------------------------------- #
-
-def get_proba(best, model):
-    return np.exp((best.get_aic() - model.get_aic())/2)
-
-    # ------------------------------------------------------------------- #
-    #                               SOLVER                                #
-    # ------------------------------------------------------------------- #
-
-
-def zmax_impact(zmax):
-    d = pd.read_csv('../Data/data_cheat.csv', sep=' ', index_col='CID')
-    d_snf = pd.read_csv('../Data/lssfr_paper_full_sntable.csv', sep=',')
-
-    surv = {'SNF':  d_snf.loc[d_snf['name'].str.contains('SNF|LSQ|PTF',
-                                                         na=False,
-                                                         regex=True)],
-            'SDSS': d[d['IDSURVEY'] == 1],
-            'PS1':  d[d['IDSURVEY'] == 15],
-            'SNLS': d[d['IDSURVEY'] == 4],
-            'HST':  d[d['IDSURVEY'].isin([101, 100, 106])]}
-
-    surveys = list(zmax.keys())
-
-    zmax_cuts = dict()
-    z_zcuts = dict()
-    x1_zcuts = dict()
-    x1_err_zcuts = dict()
-
-    evol1G1M1S = Evol1G1M1S()
-    evol1G1M2S = Evol1G1M2S()
-    evol2G2M2S = Evol2G2M2S()
-    evol2G2M2SF = Evol2G2M2SF()
-    evol3G2M1S = Evol3G2M1S()
-    evol3G2M1SF = Evol3G2M1SF()
-    evol3G2M2S = Evol3G2M2S()
-    evol3G2M2SF = Evol3G2M2SF()
-    evol3G3M3S = Evol3G3M3S()
-    evol3G3M3SF = Evol3G3M3SF()
-
-    d_mod_comp = []
-    NR_params = []
-
-    # gen = (survey for survey in surveys if survey != 'SNF')
-
-    for i in range(len(zmax['SDSS'])):
-        for survey in surveys[1:]:
-            zmax_cuts[survey] = np.where(surv[survey].zCMB.values
-                                         < zmax[survey][i])
-            z_zcuts[survey] = surv[survey].zCMB.values[zmax_cuts[survey]]
-            x1_zcuts[survey] = surv[survey].x1.values[zmax_cuts[survey]]
-            x1_err_zcuts[survey] = surv[survey].x1ERR.values[zmax_cuts[survey]]
-
-        zmax_cuts['SNF'] = np.where(surv['SNF']['host.zcmb'].values
-                                    < zmax['SNF'][i])
-        z_zcuts['SNF'] = surv['SNF']['host.zcmb'].values[zmax_cuts['SNF']]
-        x1_zcuts['SNF'] = surv['SNF']['salt2.X1'].values[zmax_cuts['SNF']]
-        x1_err_zcuts['SNF'] = surv['SNF']['salt2.X1.err'].values[zmax_cuts['SNF']]
-
-        datax_all = np.concatenate(
-            (np.concatenate(
-                (np.concatenate(
-                    (np.concatenate((x1_zcuts['SNF'],
-                                     x1_zcuts['SDSS'])),
-                     x1_zcuts['PS1'])),
-                 x1_zcuts['SNLS'])),
-             x1_zcuts['HST']))
-
-        datax_err_all = np.concatenate(
-            (np.concatenate(
-                (np.concatenate(
-                    (np.concatenate((x1_err_zcuts['SNF'],
-                                     x1_err_zcuts['SDSS'])),
-                     x1_err_zcuts['PS1'])),
-                 x1_err_zcuts['SNLS'])),
-             x1_err_zcuts['HST']))
-
-        dataz_all = np.concatenate(
-            (np.concatenate(
-                (np.concatenate(
-                    (np.concatenate((z_zcuts['SNF'],
-                                     z_zcuts['SDSS'])),
-                     z_zcuts['PS1'])),
-                 z_zcuts['SNLS'])),
-             z_zcuts['HST']))
-
-        frame = pd.DataFrame({'Name': [],
-                              'ln L': [],
-                              'AICc': [],
-                              '$\Delta$ AICc': [],
-                              'Proba': []})
-
-        del(evol3G2M1S)
-        evol3G2M1S = Evol3G2M1S()
-        evol3G2M1S.set_data(dataz_all, datax_all, datax_err_all)
-        evol3G2M1S.minimize()
-
-        frame.loc[0, 'Name'] = type(evol3G2M1S).__name__
-        frame.loc[0, 'ln L'] = evol3G2M1S.get_logl()
-        frame.loc[0, 'AICc'] = evol3G2M1S.get_aic()
-        frame.loc[0, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol3G2M1S.get_aic())
-        frame.loc[0, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol3G2M1S)
-
-        del(evol3G2M2S)
-        evol3G2M2S = Evol3G2M2S()
-        evol3G2M2S.set_data(dataz_all, datax_all, datax_err_all)
-        evol3G2M2S.minimize()
-
-        frame.loc[1, 'Name'] = type(evol3G2M2S).__name__
-        frame.loc[1, 'ln L'] = evol3G2M2S.get_logl()
-        frame.loc[1, 'AICc'] = evol3G2M2S.get_aic()
-        frame.loc[1, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol3G2M2S.get_aic())
-        frame.loc[1, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol3G2M2S)
-
-        del(evol2G2M2S)
-        evol2G2M2S = Evol2G2M2S()
-        evol2G2M2S.set_data(dataz_all, datax_all, datax_err_all)
-        evol2G2M2S.minimize()
-
-        frame.loc[2, 'Name'] = type(evol2G2M2S).__name__
-        frame.loc[2, 'ln L'] = evol2G2M2S.get_logl()
-        frame.loc[2, 'AICc'] = evol2G2M2S.get_aic()
-        frame.loc[2, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol2G2M2S.get_aic())
-        frame.loc[2, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol2G2M2S)
-
-        del(evol3G3M3S)
-        evol3G3M3S = Evol3G3M3S()
-        evol3G3M3S.set_data(dataz_all, datax_all, datax_err_all)
-        evol3G3M3S.minimize()
-
-        frame.loc[3, 'Name'] = type(evol3G3M3S).__name__
-        frame.loc[3, 'ln L'] = evol3G3M3S.get_logl()
-        frame.loc[3, 'AICc'] = evol3G3M3S.get_aic()
-        frame.loc[3, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol3G3M3S.get_aic())
-        frame.loc[3, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol3G3M3S)
-
-        del(evol3G3M3SF)
-        evol3G3M3SF = Evol3G3M3SF()
-        evol3G3M3SF.set_data(dataz_all, datax_all, datax_err_all)
-        evol3G3M3SF.minimize(limit_f=(0, 1), limit_a=(0, 1))
-
-        frame.loc[4, 'Name'] = type(evol3G3M3SF).__name__
-        frame.loc[4, 'ln L'] = evol3G3M3SF.get_logl()
-        frame.loc[4, 'AICc'] = evol3G3M3SF.get_aic()
-        frame.loc[4, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol3G3M3SF.get_aic())
-        frame.loc[4, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol3G3M3SF)
-
-        del(evol3G2M2SF)
-        evol3G2M2SF = Evol3G2M2SF()
-        evol3G2M2SF.set_data(dataz_all, datax_all, datax_err_all)
-        evol3G2M2SF.minimize(limit_f=(0, 1), limit_a=(0, 1))
-
-        frame.loc[5, 'Name'] = type(evol3G2M2SF).__name__
-        frame.loc[5, 'ln L'] = evol3G2M2SF.get_logl()
-        frame.loc[5, 'AICc'] = evol3G2M2SF.get_aic()
-        frame.loc[5, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol3G2M2SF.get_aic())
-        frame.loc[5, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol3G2M2SF)
-
-        del(evol2G2M2SF)
-        evol2G2M2SF = Evol2G2M2SF()
-        evol2G2M2SF.set_data(dataz_all, datax_all, datax_err_all)
-        evol2G2M2SF.minimize()
-
-        frame.loc[6, 'Name'] = type(evol2G2M2SF).__name__
-        frame.loc[6, 'ln L'] = evol2G2M2SF.get_logl()
-        frame.loc[6, 'AICc'] = evol2G2M2SF.get_aic()
-        frame.loc[6, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol2G2M2SF.get_aic())
-        frame.loc[6, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol2G2M2SF)
-
-        del(evol3G2M1SF)
-        evol3G2M1SF = Evol3G2M1SF()
-        evol3G2M1SF.set_data(dataz_all, datax_all, datax_err_all)
-        evol3G2M1SF.minimize(limit_f=(0, 1), limit_a=(0, 1))
-
-        frame.loc[7, 'Name'] = type(evol3G2M1SF).__name__
-        frame.loc[7, 'ln L'] = evol3G2M1SF.get_logl()
-        frame.loc[7, 'AICc'] = evol3G2M1SF.get_aic()
-        frame.loc[7, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol3G2M1SF.get_aic())
-        frame.loc[7, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol3G2M1SF)
-
-        del(evol1G1M2S)
-        evol1G1M2S = Evol1G1M2S()
-        evol1G1M2S.set_data(dataz_all, datax_all, datax_err_all)
-        evol1G1M2S.minimize()
-
-        frame.loc[8, 'Name'] = type(evol1G1M2S).__name__
-        frame.loc[8, 'ln L'] = evol1G1M2S.get_logl()
-        frame.loc[8, 'AICc'] = evol1G1M2S.get_aic()
-        frame.loc[8, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol1G1M2S.get_aic())
-        frame.loc[8, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol1G1M2S)
-
-        del(evol1G1M1S)
-        evol1G1M1S = Evol1G1M1S()
-        evol1G1M1S.set_data(dataz_all, datax_all, datax_err_all)
-        evol1G1M1S.minimize()
-
-        frame.loc[9, 'Name'] = type(evol1G1M1S).__name__
-        frame.loc[9, 'ln L'] = evol1G1M1S.get_logl()
-        frame.loc[9, 'AICc'] = evol1G1M1S.get_aic()
-        frame.loc[9, '$\Delta$ AICc'] = (evol3G2M1S.get_aic()
-                                         - evol1G1M1S.get_aic())
-        frame.loc[9, 'Proba'] = get_proba(evol3G2M1S,
-                                          evol1G1M1S)
-
-        d_mod_comp.append(frame)
-
-        NR_params.append([round(evol3G2M2S.param['a'], 4),
-                          round(evol3G2M2S.param['mu_1'], 4),
-                          round(evol3G2M2S.param['mu_2'], 4)])
-
-    return(d_mod_comp, NR_params)
-
-
-# =========================================================================== #
-#                                                                             #
-#                                  GENERIQUE                                  #
-#                                                                             #
-# =========================================================================== #
-
-
-class generic(StretchDist):
-    '''Usage:
-       gen = stretchevol.fitter()
-       gen.set_model('model')
-       gen.set_data(pandas)
-       gen.fit()
-
-       gen.model.param'''
-
-    def set_model(self, classname):
-        self.model = getattr(sys.modules[__name__], classname)
-
-    def fit(self):
-        ''' '''
-        model = self.model()
-        model.set_data(self.pd)
-        model.minimize()
-        return(model)
