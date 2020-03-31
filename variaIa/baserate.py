@@ -6,7 +6,6 @@ from scipy import stats
 from astropy.cosmology import Planck15 as cosmo
 from modefit.baseobjects import BaseModel, BaseFitter, DataHandler, BaseObject
 import matplotlib.pyplot as plt
-plt.style.use(['classic', 'seaborn-white'])
 
 
 """
@@ -36,9 +35,11 @@ _ = ratefitter.show()
 """
 
 
-#
-# FITTER
-#
+# =========================================================================== #
+#                                                                             #
+#                                   FITTER                                    #
+#                                                                             #
+# =========================================================================== #
 
 class RateFitter(BaseFitter):
     """ """
@@ -46,21 +47,21 @@ class RateFitter(BaseFitter):
     SIDE_PROPERTIES = ["fitted_flag"]
     DERIVED_PROPERTIES = ["fitted_counts", "fitted_redshift_ranges"]
 
-    # ================ #
-    #  BaseModel Struc #
-    # ================ #
+    # =================================================================== #
+    #                           BaseModel Struc                           #
+    # =================================================================== #
 
     def _get_model_args_(self):
         """ """
         return self.fitted_counts, self.fitted_redshift_ranges
 
-    # ================ #
-    #  Methods         #
-    # ================ #
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
 
-    # --------- #
-    #  SETTER   #
-    # --------- #
+    # ------------------------------------------------------------------- #
+    #                               SETTER                                #
+    # ------------------------------------------------------------------- #
 
     def set_data(self, counts, redshift_ranges):
         """ Number of counts in your sample within the given redshift_ranges"""
@@ -81,9 +82,9 @@ class RateFitter(BaseFitter):
         self._derived_properties["fitted_redshift_ranges"] =\
             self.redshift_ranges.T[self.fitted_flag].T
 
-    # --------- #
-    #  PLOTTER  #
-    # --------- #
+    # ------------------------------------------------------------------- #
+    #                               PLOTTER                               #
+    # ------------------------------------------------------------------- #
 
     def show(self, datacolor="C0", modelcolor="C1", stepalpha=0.2,
              add_proba=True):
@@ -115,14 +116,12 @@ class RateFitter(BaseFitter):
                    **prop)
 
         ax.set_ylim(0)
-        ax.set_ylabel("counts", fontsize=20)
-        ax.set_xlabel("redshift", fontsize=20)
+        ax.set_ylabel(r'$\mathrm{counts}$', fontsize='x-large')
+        ax.set_xlabel(r'$\mathrm{redshift}$', fontsize='x-large')
 
-        ax.tick_params(axis='both',
-                       direction='in',
-                       length=10, width=3,
-                       labelsize=20,
-                       which='both',
+        ax.tick_params(direction='in',
+                       length=5, width=1,
+                       labelsize=15,
                        top=True, right=True)
 
         if add_proba:
@@ -143,18 +142,18 @@ class RateFitter(BaseFitter):
                                                  self.redshift_ranges),
                          color="0.5", ls="-")
 
-            axt.set_ylabel("Poisson cdf", fontsize=20)
-            axt.tick_params(labelsize=20)
+            axt.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
+            axt.tick_params(labelsize=15)
 
         return {"fig": fig, "ax": ax}
 
     def pshow(self, guess):
         """ """
         fig = plt.figure(figsize=[10, 6])
+        ax = fig.add_axes([.1, .12, .8, .8])
 
         num_plots = len(self.redshift_ranges.T)
 
-#        colormap = plt.cm.gist_ncar
         plt.gca().set_prop_cycle(plt.cycler('color',
                                             plt.cm.jet(np.linspace(0, 1,
                                                        num_plots))))
@@ -172,29 +171,25 @@ class RateFitter(BaseFitter):
                      self.model.get_cumuprob(self.fitted_counts,
                                              self.fitted_redshift_ranges))
 
-        ax = plt.gca()
-        ax.tick_params(axis='both',
-                       direction='in',
-                       length=10, width=3,
-                       labelsize=20,
-                       which='both',
+        ax.tick_params(direction='in',
+                       length=5, width=1,
+                       labelsize=12,
                        top=True, right=True)
-        plt.xlabel('$z_{max}$', fontsize=20)
-        plt.ylabel('Poisson cdf', fontsize=20)
 
-        plt.title('Evolution of poisson cdf with bins used to fit',
-                  fontsize=20)
+        ax.set_xlabel(r'$z_{max}$', fontsize='x-large')
+        ax.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
+
+        plt.title(r'$\mathrm{Evolution\,\,of\,\,poisson\,\,cdf\,\,with\,\,}$' +
+                  r'$\mathrm{bins\,\,used\,\,to\,\,fit}$', fontsize='x-large')
 
         plt.legend(labels, ncol=1, loc='upper right',
                    columnspacing=1.0, labelspacing=0.0,
                    handletextpad=0.0, handlelength=1.5,
                    fancybox=True, shadow=True)
 
-        plt.show()
-
-    # ================ #
-    #  Parameters      #
-    # ================ #
+    # =================================================================== #
+    #                               Parameters                            #
+    # =================================================================== #
 
     # - Data In
     @property
@@ -238,120 +233,11 @@ class RateFitter(BaseFitter):
                 self.redshift_ranges
         return self._derived_properties["fitted_redshift_ranges"]
 
-# ==================== #
-#                      #
-#   SHOW P-VALUE       #
-#                      #
-# ==================== #
-
-
-def pshow_r(survey, rawdata, guess, loops):
-    """ """
-    import math
-    from scipy import interpolate
-
-    colors = {'SDSS': 'lime',
-              'SNLS': 'red',
-              'PS1': 'blue',
-              'HST': 'purple',
-              'SNF': 'orange'}
-
-    plt.figure(figsize=[10, 5])
-
-    base_r = VolumeRateModel()
-    rate_r = RateFitter()
-
-    x = [[] for i in range(loops)]
-    y = [[] for i in range(loops)]
-    p_zintp = [[] for i in range(loops)]
-
-    if survey == 'SNLS':
-        for i in range(loops):
-            data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,
-                                         math.floor(rawdata[0]*100))/100
-            data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,
-                                         (math.ceil(rawdata[-1]*10)
-                                        + math.floor(rawdata[0]*10)/2)*10)/100
-            data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
-            nb_bins_r = np.random.randint(5, 13)
-            nb_fits_per_dist = 4
-            bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r)[1])
-            bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
-                                 for i in range(len(bord_r)-1)]).T
-            counts_r = np.histogram(data_r, bord_r)[0]
-
-            rate_r.set_data(counts_r, bins_r)
-            rate_r.set_model(base_r)
-
-            for k in range(nb_fits_per_dist):
-                rate_r.set_fitted_flag(rate_r._central_redshiftranges
-                                       < rate_r._central_redshiftranges
-                                       [np.random.randint(1, nb_bins_r)])
-                rate_r.fit(a_guess=guess)
-
-                x[i].append(rate_r._central_redshiftranges)
-                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
-                                                      rate_r.redshift_ranges))
-                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
-                p_zintp[i].append(interpolate.interp1d(
-                                  x[i][k], y[i][k], kind='linear')(z_intp))
-    else:
-        for i in range(loops):
-            data_r_a = np.random.randint(math.floor(rawdata[0]*1000)/2,
-                                         math.floor(rawdata[0]*1000))/1000
-            data_r_b = np.random.randint(math.ceil(rawdata[-1]*100)*10,
-                                         (math.ceil(rawdata[-1]*100)
-                                        + math.floor(rawdata[0]*100)/2)*10)/1000
-            data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
-            nb_bins_r = np.random.randint(5, 13)
-            nb_fits_per_dist = 4
-            bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r)[1])
-            bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
-                                 for i in range(len(bord_r)-1)]).T
-            counts_r = np.histogram(data_r, bord_r)[0]
-
-            rate_r.set_data(counts_r, bins_r)
-            rate_r.set_model(base_r)
-
-            for k in range(nb_fits_per_dist):
-                rate_r.set_fitted_flag(rate_r._central_redshiftranges
-                                       < rate_r._central_redshiftranges
-                                       [np.random.randint(1, nb_bins_r)])
-                rate_r.fit(a_guess=guess)
-
-                x[i].append(rate_r._central_redshiftranges)
-                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
-                                                      rate_r.redshift_ranges))
-                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 100)
-                p_zintp[i].append(interpolate.interp1d(
-                                  x[i][k], y[i][k], kind='linear')(z_intp))
-
-    p_med = np.median(np.median(p_zintp, axis=1), axis=0)
-    p_std = np.std(np.std(p_zintp, axis=1), axis=0)
-    plt.plot(z_intp, p_med, '-', color=colors[survey])
-    plt.fill_between(z_intp, p_med - p_std, p_med + p_std,
-                     color=colors[survey], alpha=0.5)
-
-    ax = plt.gca()
-    ax.tick_params(axis='both',
-                   direction='in',
-                   length=10, width=3,
-                   labelsize=20,
-                   which='both',
-                   top=True, right=True)
-    plt.xlabel('$z$', fontsize=20)
-    plt.ylabel('Poisson cdf', fontsize=20)
-
-    plt.title('Evolution of poisson cdf with median for ' +
-              str(survey), fontsize=20)
-
-#    plt.subplots_adjust(hspace=0.3)
-
-    plt.show()
-
-#
-# MODEL
-#
+# =========================================================================== #
+#                                                                             #
+#                                MODEL STRUC                                  #
+#                                                                             #
+# =========================================================================== #
 
 
 class _RateModelStructure_(BaseModel):
@@ -382,9 +268,9 @@ class _RateModelStructure_(BaseModel):
             self.paramrate = {k: v for k, v in zip(self.RATEPARAMETERS,
                                                    parameters)}
 
-    # --------- #
-    #  Model    #
-    # --------- #
+    # ------------------------------------------------------------------- #
+    #                               Model                                 #
+    # ------------------------------------------------------------------- #
 
     def get_model(self, *args):
         """ """
@@ -410,9 +296,9 @@ class _RateModelStructure_(BaseModel):
             NotImplementedError(
                 "Your RateModel class must define `get_missedrate()` ")
 
-    # ----------- #
-    # Likelihood  #
-    # ----------- #
+    # ------------------------------------------------------------------- #
+    #                               Likelihood                            #
+    # ------------------------------------------------------------------- #
 
     def get_logprob(self, *args):
         """ """
@@ -438,9 +324,9 @@ class _RateModelStructure_(BaseModel):
         return stats.poisson.cdf(counts,
                                  self.get_expectedrate(redshift_ranges))
 
-    # ================= #
-    #  Properties       #
-    # ================= #
+    # =================================================================== #
+    #                               Properties                            #
+    # =================================================================== #
 
     @property
     def nrateparameters(self):
@@ -453,11 +339,11 @@ class _RateModelStructure_(BaseModel):
         return len(self.MISSEDPARAMETERS)
 
 
-# ==================== #
-#                      #
-#  RATE MODELS         #
-#                      #
-# ==================== #
+# =========================================================================== #
+#                                                                             #
+#                                RATE MODELS                                  #
+#                                                                             #
+# =========================================================================== #
 
 class VolumeRateModel(BaseObject):
     """ """
@@ -491,11 +377,11 @@ class PerrettRateModel(VolumeRateModel):
         return self.paramrate['a'] * (1.75 * 1e-5 * (1+redshifts)**2.11)
 
 
-# ==================== #
-#                      #
-#  MISSED MODELS       #
-#                      #
-# ==================== #
+# =========================================================================== #
+#                                                                             #
+#                                MISSED MODELS                                #
+#                                                                             #
+# =========================================================================== #
 
 
 class NoMissedModel(BaseObject):
@@ -579,11 +465,11 @@ class VolumeMissedModel(BaseObject):
             - self._get_missedrate_(redshift_ranges[0])
 
 
-# ==================== #
-#                      #
-#   TOTAL MODELS       #
-#                      #
-# ==================== #
+# =========================================================================== #
+#                                                                             #
+#                                TOTAL MODELS                                 #
+#                                                                             #
+# =========================================================================== #
 
 
 class VolumeNoModel(VolumeRateModel,
@@ -614,3 +500,201 @@ class VolumeVolumeModel(VolumeRateModel,
                         VolumeMissedModel,
                         _RateModelStructure_):
     """ """
+
+# =========================================================================== #
+#                                                                             #
+#                                SHOW P-VALUE                                 #
+#                                                                             #
+# =========================================================================== #
+
+    # ------------------------------------------------------------------- #
+    #                               SETTER                                #
+    # ------------------------------------------------------------------- #
+
+
+def zmax_poisson(survey, rawdata, guess, loops, itsc):
+    """Calculates the cdf evolution, and get the intersection. itsc must be a
+    dict of lists of itsc_inf, itsc_med and itsc_sup.
+    Returns list of z_linspace, cdf med and std, and (zinf, max, sup)"""
+    import math
+    from scipy import interpolate
+
+    # set empty base model and empty ratefitter to be filled
+    base_r = VolumeNoModel()
+    rate_r = RateFitter()
+
+    # set empty list of lists to be filled
+    x = [[] for i in range(loops)]
+    y = [[] for i in range(loops)]
+    p_zintp = [[] for i in range(loops)]
+
+    if survey == 'SNLS':
+        for i in range(loops):
+            # define start of histogram randomly between 0.06 and 0.12
+            data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,
+                                         math.floor(rawdata[0]*100))/100
+            # define end of histogram randomly between 1.10 and 1.15
+            data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,
+                                         (math.ceil(rawdata[-1]*10)
+                                        + math.floor(rawdata[0]*10)/2)*10)/100
+            # complete random data is start + normal data + end
+            data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
+            # define total number of bins
+            nb_bins_r = np.random.randint(5, 20)
+            # define number of fits for each number of total bins
+            nb_fits_per_dist = 10
+            # get the counts and limits of bins
+            counts_r, bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r))
+            # define the list of lower and upper bins for ratefit to work
+            bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
+                                 for i in range(len(bord_r)-1)]).T
+
+            # create the according ratefitter
+            rate_r.set_data(counts_r, bins_r)
+            rate_r.set_model(base_r)
+
+            for k in range(nb_fits_per_dist):
+                # for each run with total number of bins, limit the fit to a
+                # random bin from 3 to max
+                rate_r.set_fitted_flag(rate_r._central_redshiftranges
+                                       < rate_r._central_redshiftranges
+                                       [np.random.randint(3, nb_bins_r)])
+                rate_r.fit(a_guess=guess)
+
+                # fill i loop with positions of bins, k times
+                x[i].append(rate_r._central_redshiftranges)
+                # fill i loop with values of cdf, k times
+                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
+                                                      rate_r.redshift_ranges))
+                # define the z list for interpolating
+                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 10000)
+                # fill i loop with interpolation for saving
+                p_zintp[i].append(interpolate.interp1d(
+                                  x[i][k], y[i][k], kind='linear')(z_intp))
+    else:
+        for i in range(loops):
+            data_r_a = np.random.randint(math.floor(rawdata[0]*1000)/2,
+                                         math.floor(rawdata[0]*1000))/1000
+            data_r_b = np.random.randint(math.ceil(rawdata[-1]*100)*10,
+                                         (math.ceil(rawdata[-1]*100)
+                                        + math.floor(rawdata[0]*100)/2)*10)/1000
+            data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
+            nb_bins_r = np.random.randint(5, 20)
+            nb_fits_per_dist = 10
+            counts_r, bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r))
+            bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
+                                 for i in range(len(bord_r)-1)]).T
+
+            rate_r.set_data(counts_r, bins_r)
+            rate_r.set_model(base_r)
+
+            for k in range(nb_fits_per_dist):
+                rate_r.set_fitted_flag(rate_r._central_redshiftranges
+                                       < rate_r._central_redshiftranges
+                                       [np.random.randint(3, nb_bins_r)])
+                rate_r.fit(a_guess=guess)
+
+                x[i].append(rate_r._central_redshiftranges)
+                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
+                                                      rate_r.redshift_ranges))
+                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 10000)
+                p_zintp[i].append(interpolate.interp1d(
+                                  x[i][k], y[i][k], kind='linear')(z_intp))
+
+    # compute the median of all interpolated curves
+    p_med = np.median(np.median(p_zintp, axis=1), axis=0)
+    # compute the standard deviation of all interpolated curves
+    p_std = np.std(np.std(p_zintp, axis=1), axis=0)
+
+    # construct list of horizontal values for intersection
+    horiz_inf = [itsc[survey][0] for i in range(len(p_med))]
+    horiz_med = [itsc[survey][1] for i in range(len(p_med))]
+    horiz_sup = [itsc[survey][2] for i in range(len(p_med))]
+    # gives the indice of intersection with p_med
+    ind_med = np.argwhere(np.diff(np.sign(p_med - horiz_med))).flatten()[-1]
+    # same with p_med - p_std
+    ind_inf = np.argwhere(np.diff(np.sign(p_med - horiz_inf))).flatten()[-1]
+    # same with p_med + p_std
+    ind_sup = np.argwhere(np.diff(np.sign(p_med - horiz_sup))).flatten()[-1]
+    # This gives the list of borne inf, moyenne, borne sup
+    zmax = [round(z_intp[ind_inf], 4),
+            round(z_intp[ind_med], 4),
+            round(z_intp[ind_sup], 4)]
+
+    return(z_intp, p_med, p_std, zmax)
+
+    # ------------------------------------------------------------------- #
+    #                               PLOTTER                               #
+    # ------------------------------------------------------------------- #
+
+
+def zmax_pshow(z_lins, meds, stds, z_max, itsc,
+               show_itsc=True, show_infsup=True):
+    """Plot all (or one) cdf evolution"""
+    fig = plt.figure(figsize=[8, 5])
+    ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
+    surveys = list(z_lins.keys())
+
+    colors = {'SDSS': 'lime',
+              'PS1': 'blue',
+              'SNLS': 'red'}
+
+    for survey in surveys:
+        ax.plot(z_lins[survey],
+                meds[survey],
+                '-', color=colors[survey],
+                label=survey)
+        ax.fill_between(z_lins[survey],
+                        meds[survey] - stds[survey],
+                        meds[survey] + stds[survey],
+                        color=colors[survey], alpha=0.1)
+        if show_itsc:
+            ax.vline(z_max[survey][1],
+                     color=colors[survey],
+                     lw=1.0)
+            ax.plot(z_max[survey][1],
+                    itsc[survey][1],
+                    color="black", marker='o')
+            ax.hline(itsc[survey][1],
+                     color="0.3", lw=1.0)
+# label=r"$z_{\mathrm{max,med}}$")
+        if show_infsup:
+            ax.vline(z_max[survey][0],
+                     color=colors[survey],
+                     lw=1.0)
+            ax.plot(z_max[survey][0],
+                    itsc[survey][0],
+                    color=".7", marker='o')
+            ax.hline(itsc[survey][0],
+                     color="0.3", lw=1.0)
+# label=r"$z_{\mathrm{max,inf/sup}}$")
+            ax.vline(z_max[survey][2],
+                     color=colors[survey],
+                     lw=1.0)
+            ax.plot(z_max[survey][2],
+                    itsc[survey][2],
+                    color=".7", marker='o')
+            ax.hline(itsc[survey][2],
+                     color="0.3", lw=1.0)
+
+    ax.tick_params(direction='in',
+                   length=5, width=1,
+                   labelsize=12,
+                   top=True, right=True)
+
+    ax.set_xlim(np.min(list(z_lins.values())),
+                np.max(list(z_lins.values())))
+    ax.set_ylim(np.min(np.asarray(list(meds.values()))
+                       - np.asarray(list(stds.values()))),
+                np.max(np.asarray(list(meds.values()))
+                       + np.asarray(list(stds.values()))))
+
+    ax.set_xlabel(r'$\mathrm{redshift}$', fontsize='x-large')
+    ax.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
+
+    plt.legend(ncol=1, loc='upper right')
+
+    plt.title(r'$\mathrm{Evolution\,\,of\,\,poisson\,\,cdf\,\,with\,\,}$' +
+              r'$\mathrm{median\,\,for\,\,surveys}$',
+              fontsize='x-large')

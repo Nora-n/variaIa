@@ -1,0 +1,8 @@
+,Name,Fixed,Free param,$\mathcal{L}$,AIC,$\Delta$ AIC,Proba
+0,Howell+drift,False,4,1479.3,1487.3,0.0,1.3040056939122215
+1,Base,False,5,1477.8,1487.8,-0.5,1.0
+2,Asymmetric,True,3,1485.2,1491.2,-3.9,0.18415149848910534
+3,Howell:const,True,5,1484.2,1494.2,-6.9,0.040965444129418584
+4,Base:const,True,6,1484.2,1496.2,-8.9,0.015070461790565237
+5,BBC-modeling,True,3x5,1468.2,1498.2,-10.9,1.5e-07
+6,Gaussian,True,2,1521.8,1525.8,-38.5,5.67730812630248e-09
