@@ -423,7 +423,7 @@ class Evol2G2M2S(StretchDist):
 
 
 class Evol2G2M2SF(Evol2G2M2S):
-    '''Howell:const'''
+    '''Howell+const'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -835,7 +835,7 @@ class Evol3G2M2S(Evol2G2M2S):
 
 
 class Evol3G2M2SF(Evol3G2M2S):
-    '''Base:const'''
+    '''Base+const'''
 
     # =================================================================== #
     #                              Parameters                             #
