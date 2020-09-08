@@ -8,8 +8,8 @@ import ipywidgets as ipw
 
 from variaIa import stretchevol
 
-d = pd.read_csv('../../Data/data_cheat.csv', sep=' ', index_col='CID')
-d_snf = pd.read_csv('../../Data/lssfr_paper_full_sntable.csv', sep=',')
+d = pd.read_csv('../../../Data/data_cheat.csv', sep=' ', index_col='CID')
+d_snf = pd.read_csv('../../../Data/lssfr_paper_full_sntable.csv', sep=',')
 
 surveys = ['SNF', 'SDSS', 'PS1', 'SNLS', 'HST']
 nsurveys = ['nSNF', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
@@ -29,7 +29,7 @@ surv = {'SNF':  raw_df_snf[raw_df_snf['salt2.Color'] < 0.3],
         'SNLS': d[d['IDSURVEY'] == 4],
         'HST':  d[d['IDSURVEY'].isin([101, 100, 106])]}
 
-with open('../../Data/zmax_mlim', 'rb') as f:
+with open('../../../Data/zmax_mlim', 'rb') as f:
     z_max = pickle.load(f)
 z_max['HST'] = [10, 10]
 
@@ -48,8 +48,8 @@ x1_err_zcuts['SNF'] = surv['SNF']['salt2.X1.err'].values
 c_zcuts['SNF'] = surv['SNF']['salt2.Color'].values
 c_err_zcuts['SNF'] = surv['SNF']['salt2.Color.err'].values
 M_zcuts['SNF'] = surv['SNF']['gmass'].values
-M_err_zcuts['SNF'] = np.sqrt(surv['SNF']['gmass.err_down'].values**2 +
-                             surv['SNF']['gmass.err_up'].values**2)
+M_err_zcuts['SNF'] = np.sqrt((surv['SNF']['gmass.err_down'].values**2 +
+                             surv['SNF']['gmass.err_up'].values**2)/2)
 
 
 def df_cons(cons):

@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
 import scipy
 import iminuit
 import numpy as np
@@ -32,6 +33,30 @@ def make_method(obj):
         return f
 
     return decorate
+
+# =========================================================================== #
+#                                                                             #
+#                                  GENERIQUE                                  #
+#                                                                             #
+# =========================================================================== #
+
+
+class generic():
+    '''Usage:
+       gen = massevol.generic()
+       gen.set_model('model')
+       fitted_model = gen.fit(pandas)
+
+       fitted_model.param'''
+
+    def set_model(self, classname):
+        self.model = getattr(sys.modules[__name__], classname)
+
+    def fit(self, pandas, **kwargs):
+        ''' '''
+        model = self.model(pandas)
+        model.minimize(**kwargs)
+        return(model)
 
 # =========================================================================== #
 #                                                                             #
@@ -255,9 +280,13 @@ class Evol3G3M4S():
     #                               PLOTTER                               #
     # ------------------------------------------------------------------- #
 
+        # ----------------------------------------------------------- #
+        #                           Scatter                           #
+        # ----------------------------------------------------------- #
+
     def scatter(self, model=True, ax=None, show_leg=False, lssfr=True,
                 mod_lw=1, lw=1, elw=1, ealpha=1, s=80,
-                facealpha=1, fontsize='large'):
+                facealpha=1, fontsize='large', yotext=True):
         '''Trace le nuage de points et les fits
         model=False ne montre que les données du pandas'''
         dgmap = plt.cm.get_cmap('viridis')
@@ -300,7 +329,22 @@ class Evol3G3M4S():
         if show_leg:
             ax.legend(ncol=1, loc='upper left')
 
-        # plt.title('1GSNF model', fontsize=20)
+        if yotext:
+            ax.text(ax.get_xlim()[0]*0.99, ax.get_ylim()[-1]*0.99,
+                    'Old',
+                    ha='left', va='top',
+                    fontsize='x-large',
+                    color=plt.cm.viridis(0.97, 0.5))
+
+            ax.text(ax.get_xlim()[-1]*1.01, ax.get_ylim()[-1]*0.99,
+                    'Young',
+                    ha='right', va='top',
+                    fontsize='x-large',
+                    color=plt.cm.viridis(0.05, 0.5))
+
+        # ----------------------------------------------------------- #
+        #                           Modeler                           #
+        # ----------------------------------------------------------- #
 
     def show_model(self, ax=None, shift=0,
                    facealpha=0.1, edgealpha=.8,
@@ -327,6 +371,52 @@ class Evol3G3M4S():
                          facecolor=plt.cm.viridis(0.95, facealpha),
                          edgecolor=plt.cm.viridis(0.95, edgealpha),
                          label='model old', **kwargs)
+
+        # ----------------------------------------------------------- #
+        #                           Histoer                           #
+        # ----------------------------------------------------------- #
+
+    def show_hist(self, ax=None, bottom=0,
+                  range=(8, 12), bins=14, lw=1,
+                  yotext=True):
+        """Shows the weighted hist of the model"""
+        if ax is None:
+            fig = plt.figure(figsize=[7, 3.5])
+            ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
+        prop = dict(orientation='horizontal',
+                    histtype='step',
+                    fill=True,
+                    range=range, bins=bins,
+                    lw=lw)
+
+        self.amp = (prop['range'][1]-prop['range'][0])/prop['bins']
+
+        ax.hist(self.hostmass, weights=(self.py),
+                facecolor=plt.cm.viridis(0.05, 0.5),
+                edgecolor='0.7', bottom=bottom,
+                **prop)
+        ax.hist(self.hostmass, weights=self.py-1,
+                facecolor=plt.cm.viridis(0.95, 0.5),
+                edgecolor='0.7', bottom=bottom,
+                **prop)
+
+        if yotext:
+            ax.text(-1.30, ax.get_ylim()[-1]*0.99,
+                    'Old',
+                    ha='right', va='top',
+                    fontsize='x-large',
+                    color=plt.cm.viridis(0.97, 0.5))
+
+            ax.text(1.30, ax.get_ylim()[-1]*0.99,
+                    'Young',
+                    ha='left', va='top',
+                    fontsize='x-large',
+                    color=plt.cm.viridis(0.05, 0.5))
+
+        # ----------------------------------------------------------- #
+        #                           Totaler                           #
+        # ----------------------------------------------------------- #
 
     def show_model_tot(self, ax=None, fontsize='large', **kwargs):
         """ """
@@ -403,3 +493,49 @@ class Evol3G3M3S(Evol3G3M4S):
                                                     mu_1, sigma_1,
                                                     a, mu_2, sigma_2,
                                                     mu_3, sigma_3)))
+
+# =========================================================================== #
+#                                Gauss + gauss                                #
+# =========================================================================== #
+
+
+class Evol2G2M2S(Evol3G3M4S):
+    '''2G2M2S'''
+
+    # =================================================================== #
+    #                              Variables                              #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['mu_2', 'sigma_2']
+    FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
+                                         YOUNGPARAMETERS),
+                               OLDPARAMETERS)
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
+    GUESSVAL = [9.5, 1, 10.5, 1]
+    GUESS = [k + '=' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = False
+
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
+
+    def likelihood_o(self, x, dx, mu_2, sigma_2):
+        '''Underlying mass distribution of old SNe Ia'''
+        return self.gauss(x, dx, mu_2, sigma_2)
+
+    def likelihood_tot(self, info, x, dx, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-info)*self.likelihood_o(x, dx, mu_2, sigma_2)
+
+    def loglikelihood(self, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
+                                                    self.hostmass,
+                                                    self.hostmass_err,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2)))

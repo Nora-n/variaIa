@@ -1,0 +1,4 @@
+,Name,Fixed,Free param,$\mathcal{L}$,AIC,$\Delta$ AIC,Proba
+0,3G3M3S,False,7,213.3,227.3,0.0,1.0
+1,3G3M4S,False,8,214.8,230.8,-3.5,0.17486528578400842
+2,2G2M2S,False,4,224.8,232.8,-5.4,0.0655605547117125

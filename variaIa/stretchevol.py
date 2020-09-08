@@ -96,12 +96,12 @@ class StretchDist():
 
 class generic(StretchDist):
     '''Usage:
-       gen = stretchevol.fitter()
+       gen = stretchevol.generic()
        gen.set_model('model')
        gen.set_data(pandas)
-       gen.fit()
+       fitted_model = gen.fit()
 
-       gen.model.param'''
+       fitted_model.param'''
 
     def set_model(self, classname):
         self.model = getattr(sys.modules[__name__], classname)
