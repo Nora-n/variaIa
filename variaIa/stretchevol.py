@@ -223,7 +223,8 @@ class Evol2G2M2S(StretchDist):
     #                               EXTFUNC                               #
     # ------------------------------------------------------------------- #
 
-    def delta(self, z):
+    @staticmethod
+    def delta(z):
         '''Gives the fraction of young SNe Ia as a function of redshift;
         taken from https://arxiv.org/abs/1806.03849'''
         K = 0.87
