@@ -16,7 +16,7 @@ nsurveys = ['nSNF', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
 
 su = ipw.Dropdown(options=surveys + ['All'] + nsurveys,
                   description='Survey:',
-                  value='All')
+                  value='SNF')
 
 cons = ipw.Checkbox(value=False,
                     description='Conservative')
@@ -104,7 +104,7 @@ def df_cons(cons):
         hostmass_err += list(M_err_zcuts[survey])
         redshifts += list(z_zcuts[survey])
         if survey != 'SNF':
-            infor += list(stretchevol.Evol2G2M2S().delta(z_zcuts[survey]))
+            infor += list(stretchevol.Evol2G2M2S.delta(z_zcuts[survey]))
             py += list([0 for i in range(len(z_zcuts[survey]))])
             lssfr += list([0 for i in range(len(z_zcuts[survey]))])
             lssfr_err_d += list([0 for i in range(len(z_zcuts[survey]))])
@@ -152,7 +152,7 @@ for survey in surveys[1:]:
     hostmass += list(surv[survey].HOST_LOGMASS.values)
     hostmass_err += list(surv[survey].HOST_LOGMASS_ERR.values)
     redshifts += list(surv[survey].zCMB.values)
-    infor += list(stretchevol.Evol2G2M2S().delta(surv[survey].zCMB.values))
+    infor += list(stretchevol.Evol2G2M2S.delta(surv[survey].zCMB.values))
     py += list([0 for i in range(len(surv[survey].zCMB.values))])
     lssfr += list([0 for i in range(len(surv[survey].zCMB.values))])
     lssfr_err_d += list([0 for i in range(len(surv[survey].zCMB.values))])

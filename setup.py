@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 #
 
 DESCRIPTION = "variaIa: Basic tools for astrophysics and cosmology"

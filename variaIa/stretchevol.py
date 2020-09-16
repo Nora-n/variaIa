@@ -65,7 +65,7 @@ class StretchDist():
     evol.plotter()
     '''
 
-    def set_data(self, pandas, py=True):
+    def __init__(self, pandas, py=True):
         '''Pour une meilleure utilisation des données'''
         self.pd = pandas
 
@@ -284,39 +284,6 @@ class Evol2G2M2S(StretchDist):
         return 2*k + mdlogl
 
     # ------------------------------------------------------------------- #
-    #                              CHI2CALC                               #
-    # ------------------------------------------------------------------- #
-
-    def gauss_calc(self, x, mu, sigma, normed=True):
-        '''Le modèle de distribution'''
-        sigma_eff = np.sqrt(sigma**2)
-        norm = 1 if normed else np.sqrt(2*np.pi)*sigma_eff
-        return norm*np.exp((x-mu)**2/sigma**2)
-
-    def likelihood_y_calc(self, x, mu_1, sigma_1):
-        '''La fonction décrivant le modèle des SNe jeunes'''
-        return self.gauss_calc(x, mu_1, sigma_1)
-
-    def likelihood_o_calc(self, x, mu_2, sigma_2):
-        '''La fonction décrivant le modèle des SNe vieilles'''
-        return self.gauss_calc(x, mu_2, sigma_2)
-
-    def likelihood_tot_calc(self, info, x, mu_1, sigma_1, mu_2, sigma_2):
-        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return info*self.likelihood_y_calc(x, mu_1, sigma_1) + \
-            (1-info)*self.likelihood_o_calc(x, mu_2, sigma_2)
-
-    def loglikelihood_calc(self):
-        '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot_calc(self.info,
-                                                         self.stretchs,
-                                                         self.param['mu_1'],
-                                                         self.param['sigma_1'],
-                                                         self.param['mu_2'],
-                                                         self.param['sigma_2']
-                                                         )))
-
-    # ------------------------------------------------------------------- #
     #                               PLOTTER                               #
     # ------------------------------------------------------------------- #
 
@@ -464,25 +431,6 @@ class Evol2G2M2SF(Evol2G2M2S):
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2)))
 
-    # ------------------------------------------------------------------- #
-    #                              CHI2CALC                               #
-    # ------------------------------------------------------------------- #
-
-    def likelihood_tot_calc(self, f, x, mu_1, sigma_1, mu_2, sigma_2):
-        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return f*self.likelihood_y_calc(x, mu_1, sigma_1) + \
-            (1-f)*self.likelihood_o_calc(x, mu_2, sigma_2)
-
-    def loglikelihood_calc(self):
-        '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot_calc(self.param['f'],
-                                                         self.stretchs,
-                                                         self.param['mu_1'],
-                                                         self.param['sigma_1'],
-                                                         self.param['mu_2'],
-                                                         self.param['sigma_2']
-                                                         )))
-
 # =========================================================================== #
 #                                 EvolSimple                                  #
 # =========================================================================== #
@@ -523,20 +471,6 @@ class Evol1G1M1S(Evol2G2M2S):
         return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
                                                     self.stretchs_err,
                                                     mu, sigma)))
-
-    # ------------------------------------------------------------------- #
-    #                              CHI2CALC                               #
-    # ------------------------------------------------------------------- #
-
-    def likelihood_tot_calc(self, x, mu, sigma):
-        '''La fonction de distribution'''
-        return self.gauss_calc(x, mu, sigma)
-
-    def loglikelihood_calc(self):
-        '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot_calc(self.stretchs,
-                                                         self.param['mu'],
-                                                         self.param['sigma'])))
 
 # =========================================================================== #
 #                                 EvolKessler                                 #
@@ -587,32 +521,6 @@ class Evol1G1M2S(Evol2G2M2S):
                                                     self.stretchs_err,
                                                     mu,
                                                     sigma_m, sigma_p)))
-
-    # ------------------------------------------------------------------- #
-    #                              CHI2CALC                               #
-    # ------------------------------------------------------------------- #
-
-    def likelihood_tot_calc(self, x, mu, sigma_m, sigma_p):
-        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        flag_up = x >= mu
-        likelihood = np.zeros(len(x))
-        likelihood[flag_up] = self.gauss_calc(x[flag_up],
-                                              mu, sigma_p,
-                                              normed=False)
-        likelihood[~flag_up] = self.gauss_calc(x[~flag_up],
-                                               mu, sigma_m,
-                                               normed=False)
-        norm = np.sqrt(2*np.pi)*(0.5*np.sqrt(sigma_m**2)
-                                 + 0.5*np.sqrt(sigma_p**2))
-        return likelihood/norm
-
-    def loglikelihood_calc(self):
-        '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
-                                                    self.stretchs_err,
-                                                    self.param['mu'],
-                                                    self.param['sigma_m'],
-                                                    self.param['sigma_p'])))
 
     # ------------------------------------------------------------------- #
     #                               PLOTTER                               #
@@ -708,29 +616,6 @@ class Evol3G2M1S(Evol2G2M2S):
                                                     self.stretchs_err,
                                                     a, mu_1, sigma_1,
                                                     mu_2)))
-
-    # ------------------------------------------------------------------- #
-    #                              CHI2CALC                               #
-    # ------------------------------------------------------------------- #
-
-    def likelihood_o_calc(self, x, a, mu_1, sigma_1, mu_2):
-        '''La fonction décrivant le modèle des SNe vieilles'''
-        return a*self.gauss_calc(x, mu_1, sigma_1) + \
-            (1-a)*self.gauss_calc(x, mu_2, sigma_1)
-
-    def likelihood_tot_calc(self, info, x, a, mu_1, sigma_1, mu_2):
-        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return info*self.likelihood_y_calc(x, mu_1, sigma_1) + \
-            (1-info)*self.likelihood_o_calc(x, mu_1, sigma_1, mu_2)
-
-    def loglikelihood_calc(self):
-        '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.info,
-                                                    self.stretchs,
-                                                    self.param['a'],
-                                                    self.param['mu_1'],
-                                                    self.param['sigma_1'],
-                                                    self.param['mu_2'])))
 
 # =========================================================================== #
 #                                   EvolNR1S                                  #
