@@ -49,21 +49,67 @@ def make_method(obj):
 
 # =========================================================================== #
 #                                                                             #
-#                             CLASSIC STRETCHDIST                             #
+#                                  GENERIQUE                                  #
 #                                                                             #
 # =========================================================================== #
 
 
-class StretchDist():
-    '''USAGE :
-    evol = stretchevol.EvolCHOICE()
+class generic():
+    '''Usage:
+       gen = stretchevol.generic()
+       gen.set_model('model')
+       fitted_model = gen.fit(pandas)
 
-    evol.set_data(dataframe)
+       fitted_model.param'''
 
-    evol.minimize()
+    def set_model(self, classname):
+        '''Associates an uninstantiated class to
+        `self.model` from its string'''
+        self.model = getattr(sys.modules[__name__], classname)
 
-    evol.plotter()
-    '''
+    def fit(self, pandas, **kwargs):
+        '''Instantiates the class with the pandas,
+        apply the `minimize` method,
+        and gives that back as an output'''
+        model = self.model(pandas)
+        model.minimize(**kwargs)
+        return(model)
+
+
+# =========================================================================== #
+#                                                                             #
+#                                    MODELS                                   #
+#                                                                             #
+# =========================================================================== #
+
+# =========================================================================== #
+#                                 EvolHowell                                  #
+# =========================================================================== #
+
+
+class Evol2G2M2S():
+    '''Howell+drift'''
+
+    # =================================================================== #
+    #                              Parameters                             #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['mu_2', 'sigma_2']
+    FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
+                                         YOUNGPARAMETERS),
+                               OLDPARAMETERS)
+    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
+    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
+    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
+    GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = [k + '=' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    FIXED = False
+
+    # =================================================================== #
+    #                               Initial                               #
+    # =================================================================== #
 
     def __init__(self, pandas, py=True):
         '''Pour une meilleure utilisation des données'''
@@ -85,65 +131,6 @@ class StretchDist():
 
         self.floor = np.floor(np.min(self.stretchs)-0.3)
         self.ceil = np.ceil(np.max(self.stretchs)+0.3)
-
-
-# =========================================================================== #
-#                                                                             #
-#                                  GENERIQUE                                  #
-#                                                                             #
-# =========================================================================== #
-
-
-class generic(StretchDist):
-    '''Usage:
-       gen = stretchevol.generic()
-       gen.set_model('model')
-       gen.set_data(pandas)
-       fitted_model = gen.fit()
-
-       fitted_model.param'''
-
-    def set_model(self, classname):
-        self.model = getattr(sys.modules[__name__], classname)
-
-    def fit(self):
-        ''' '''
-        model = self.model()
-        model.set_data(self.pd)
-        model.minimize()
-        return(model)
-
-
-# =========================================================================== #
-#                                                                             #
-#                                    MODELS                                   #
-#                                                                             #
-# =========================================================================== #
-
-# =========================================================================== #
-#                                 EvolHowell                                  #
-# =========================================================================== #
-
-
-class Evol2G2M2S(StretchDist):
-    '''Howell+drift'''
-
-    # =================================================================== #
-    #                              Parameters                             #
-    # =================================================================== #
-
-    GLOBALPARAMETERS = []
-    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['mu_2', 'sigma_2']
-    FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
-                                         YOUNGPARAMETERS),
-                               OLDPARAMETERS)
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
-    GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
-    GUESS = [k + '=' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
-    FIXED = False
 
     # =================================================================== #
     #                           BaseModel Struc                           #

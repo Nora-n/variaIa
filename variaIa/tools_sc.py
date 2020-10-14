@@ -16,14 +16,14 @@ nsurveys = ['nSNF', 'nlow-z', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
 
 su = ipw.Dropdown(options=surveys + ['All'] + nsurveys,
                   description='Survey:',
-                  value='SNF')
+                  value='nlow-z')
 
 cons = ipw.Checkbox(value=False,
-                    description='Conservative')
+                    description='Super conservative')
 
 raw_df_snf = d_snf.loc[d_snf['name'].str.contains(
     'SNF|LSQ|PTF', na=False, regex=True)]
-surv = {'SNF':  raw_df_snf[raw_df_snf['salt2.Color'] < 0.3],
+surv = {'SNF':  raw_df_snf,  # [raw_df_snf['salt2.Color'] < 0.3],
         'low-z': d[d['IDSURVEY'].isin([5, 61, 62, 63, 64, 65, 66])],
         'SDSS': d[d['IDSURVEY'] == 1],
         'PS1':  d[d['IDSURVEY'] == 15],
@@ -34,6 +34,9 @@ with open('../../../Data/zmax_mlim', 'rb') as f:
     z_max = pickle.load(f)
 z_max['HST'] = [10, 10]
 z_max['low-z'] = [10, 10]
+z_max['SDSS'][0] = 0.10
+z_max['PS1'][0] = 0.20
+z_max['SNLS'][0] = 0.30
 
 zmax_cuts = dict()
 z_zcuts = dict()

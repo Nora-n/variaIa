@@ -44,3 +44,6 @@ Images/png/
 .ipynb_checkpoints
 
 */.ipynb_checkpoints/*
+Data/mmcls
+
+Data/pscls
