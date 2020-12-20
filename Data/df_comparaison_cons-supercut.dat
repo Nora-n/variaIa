@@ -1,8 +1,0 @@
-,Name,Fixed,Free param,$\mathcal{L}$,AIC,$\Delta$ AIC,Proba
-0,Base,False,5,615.1,625.1,0.0,1.0
-1,Howell+drift,False,4,623.8,631.8,-6.8,0.033833096779711004
-2,Asymmetric,True,3,643.9,649.9,-24.8,4.029432692119546e-06
-3,Howell+const,True,5,639.0,649.0,-23.9,6.4717732689174515e-06
-4,Base+const,True,6,639.0,651.0,-25.9,2.380832177746854e-06
-5,Per sample Asym,True,3x5,639.0,669.0,-24.1,5.7e-06
-6,Gaussian,True,2,657.7,661.7,-36.7,1.0992833539590978e-08

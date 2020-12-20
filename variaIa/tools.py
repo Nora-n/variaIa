@@ -8,8 +8,8 @@ import ipywidgets as ipw
 
 from variaIa import stretchevol
 
-d = pd.read_csv('../../../Data/data_cheat.csv', sep=' ', index_col='CID')
-d_snf = pd.read_csv('../../../Data/lssfr_paper_full_sntable.csv', sep=',')
+d = pd.read_csv('../../../Data/sne/data_cheat.csv', sep=' ', index_col='CID')
+d_snf = pd.read_csv('../../../Data/sne/lssfr_paper_full_sntable.csv', sep=',')
 
 surveys = ['SNF', 'low-z', 'SDSS', 'PS1', 'SNLS', 'HST']
 nsurveys = ['nSNF', 'nlow-z', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
@@ -23,14 +23,14 @@ cons = ipw.Checkbox(value=False,
 
 raw_df_snf = d_snf.loc[d_snf['name'].str.contains(
     'SNF|LSQ|PTF', na=False, regex=True)]
-surv = {'SNF':  raw_df_snf[raw_df_snf['salt2.Color'] < 0.3],
+surv = {'SNF':   raw_df_snf,  # [raw_df_snf['salt2.Color'] < 0.3],
         'low-z': d[d['IDSURVEY'].isin([5, 61, 62, 63, 64, 65, 66])],
-        'SDSS': d[d['IDSURVEY'] == 1],
-        'PS1':  d[d['IDSURVEY'] == 15],
-        'SNLS': d[d['IDSURVEY'] == 4],
-        'HST':  d[d['IDSURVEY'].isin([101, 100, 106])]}
+        'SDSS':  d[d['IDSURVEY'] == 1],
+        'PS1':   d[d['IDSURVEY'] == 15],
+        'SNLS':  d[d['IDSURVEY'] == 4],
+        'HST':   d[d['IDSURVEY'].isin([101, 100, 106])]}
 
-with open('../../../Data/zmax_mlim', 'rb') as f:
+with open('../../../Data/zmax/zmax_mlim', 'rb') as f:
     z_max = pickle.load(f)
 z_max['HST'] = [10, 10]
 z_max['low-z'] = [10, 10]
@@ -128,8 +128,8 @@ def df_cons(cons):
     return(df)
 
 
-df_nc = df_cons(False)
-df_c = df_cons(True)
+df_nc = df_cons(False)[df_cons(False)['survey'] != 'low-z']
+df_c = df_cons(True)[df_cons(True)['survey'] != 'low-z']
 
 names = ['SNF' for i in range(len(z_zcuts['SNF']))]
 stretchs = list(x1_zcuts['SNF'])
@@ -145,7 +145,7 @@ lssfr = list(surv['SNF']['lssfr'])
 lssfr_err_d = list(surv['SNF']['lssfr.err_down'])
 lssfr_err_u = list(surv['SNF']['lssfr.err_up'])
 
-for survey in surveys[1:]:
+for survey in surveys[2:]:
     names += [survey for i in range(len(surv[survey].zCMB.values))]
     stretchs += list(surv[survey].x1.values)
     stretchs_err += list(surv[survey].x1ERR.values)

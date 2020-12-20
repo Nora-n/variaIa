@@ -343,8 +343,8 @@ class Evol2G2M2S():
                          o_factor*self.plot_o(x_linspace)
                          + shift,
                          shift,
-                         facecolor=plt.cm.viridis(0.95, facealpha),
-                         edgecolor=plt.cm.viridis(0.95, edgealpha),
+                         facecolor=plt.cm.viridis(0.98, facealpha),
+                         edgecolor=plt.cm.viridis(0.98, edgealpha),
                          label='model old', **kwargs)
 
     def show_model_tot(self, ax=None, fontsize='large', **kwargs):
