@@ -143,7 +143,7 @@ lssfr = list(surv['SNF']['lssfr'])
 lssfr_err_d = list(surv['SNF']['lssfr.err_down'])
 lssfr_err_u = list(surv['SNF']['lssfr.err_up'])
 
-for survey in surveys[2:]:
+for survey in surveys[1:]:
     names += [survey for i in range(len(surv[survey].zCMB.values))]
     stretchs += list(surv[survey].x1.values)
     stretchs_err += list(surv[survey].x1ERR.values)
