@@ -24,27 +24,6 @@ snf_sigma_2 = res_SNF['sigma_2']
 
 # =========================================================================== #
 #                                                                             #
-#                                 PRELIMINARY                                 #
-#                                                                             #
-# =========================================================================== #
-
-def make_method(obj):
-    '''Decorator to make the function a method of *obj*.
-    In the current context::
-      @make_method(Axes)
-      def toto(ax, ...):
-          ...
-    makes *toto* a method of `Axes`, so that one can directly use:
-      ax.toto()
-    COPYRIGHT: from Yannick Copin'''
-    def decorate(f):
-        setattr(obj, f.__name__, f)
-        return f
-    return decorate
-
-
-# =========================================================================== #
-#                                                                             #
 #                                  GENERIQUE                                  #
 #                                                                             #
 # =========================================================================== #
@@ -96,11 +75,8 @@ class Evol2G2M2S():
     FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
                                          YOUNGPARAMETERS),
                                OLDPARAMETERS)
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
-    GUESS = [k + '=' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
     # =================================================================== #
@@ -129,78 +105,8 @@ class Evol2G2M2S():
         self.ceil = np.ceil(np.max(self.stretchs)+0.3)
 
     # =================================================================== #
-    #                           BaseModel Struc                           #
-    # =================================================================== #
-
-    def __new__(cls, *arg, **kwargs):
-        '''Upgrade of the New function to enable the _minuit_ black magic'''
-        obj = super(Evol2G2M2S, cls).__new__(cls)
-
-        # ----------------------------------------------------------- #
-        #                          Probalizer                         #
-        # ----------------------------------------------------------- #
-
-        exec("@make_method(Evol2G2M2S)\n" +
-             "def logprob(self, %s):\n" % (", ".join(obj.FREEPARAMETERS)) +
-             "    loglikelihood = self.loglikelihood(%s)\n" %
-             (", ".join(obj.FREEPARAMETERS)) +
-             "    logprior = self.logprior()\n" +
-             "    return logprior + loglikelihood")
-
-        # ----------------------------------------------------------- #
-        #                          Minimizer                          #
-        # ----------------------------------------------------------- #
-
-        exec("@make_method(Evol2G2M2S)\n" +
-             "def minimize(self, print_level=0, **kwargs):\n" +
-             "   '''Renvoie la meilleure valeur des paramètres'''\n" +
-             "   self.m_tot = iminuit.Minuit(self.logprob,\n" +
-             "                               print_level=print_level,\n" +
-             "                               pedantic=False,\n" +
-             "                               **kwargs,\n" +
-             "                               %s)\n"
-             % (", \n                               ".join(obj.GUESS)) +
-             "\n" +
-             "   self.migrad_out = self.m_tot.migrad()\n" +
-             "\n" +
-             "   self.set_param([self.m_tot.values[k] for k in " +
-             "self.FREEPARAMETERS])\n")
-
-        # ----------------------------------------------------------- #
-        #                           Plotter                           #
-        # ----------------------------------------------------------- #
-
-        exec("@make_method(Evol2G2M2S)\n" +
-             "def plot_a(self, x):\n" +
-             "    return self.likelihood_tot(x, np.zeros(len(x)), \n" +
-             "                               %s)\n"
-             % (",\n                               ".join(obj.PLTALL)))
-
-        exec("@make_method(Evol2G2M2S)\n" +
-             "def plot_y(self, x_linspace):\n" +
-             "    return self.likelihood_y(x_linspace, 0, \n" +
-             "                            %s)\n"
-             % (",\n                            ".join(obj.PLTYOUNG)))
-
-        exec("@make_method(Evol2G2M2S)\n" +
-             "def plot_o(self, x_linspace):\n" +
-             "    return self.likelihood_o(x_linspace, 0, \n" +
-             "                            %s)\n"
-             % (",\n                            ".join(obj.PLTOLD)))
-
-        return obj
-
-    # =================================================================== #
     #                               Methods                               #
     # =================================================================== #
-
-    # ------------------------------------------------------------------- #
-    #                               SETTER                                #
-    # ------------------------------------------------------------------- #
-
-    def set_param(self, param):
-        self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
-                                           np.atleast_1d(param))}
 
     # ------------------------------------------------------------------- #
     #                               EXTFUNC                               #
@@ -213,6 +119,17 @@ class Evol2G2M2S():
         K = 0.87
         Phi = 2.8
         return (K**(-1)*(1+z)**(-Phi)+1)**(-1)
+
+    # ------------------------------------------------------------------- #
+    #                               SETTER                                #
+    # ------------------------------------------------------------------- #
+
+    def set_param(self, param):
+        self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
+                                           np.atleast_1d(param))}
+        self.pltyoung = {k: self.param[k] for k in self.YOUNGPARAMETERS}
+        self.pltold = {k: self.param[k] for k in self.OLDPARAMETERS}
+        self.pltall = {k: self.param[k] for k in self.FREEPARAMETERS}
 
     # ------------------------------------------------------------------- #
     #                               FITTER                                #
@@ -237,6 +154,10 @@ class Evol2G2M2S():
         return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
             (1-info)*self.likelihood_o(x, dx, mu_2, sigma_2)
 
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
+
     def loglikelihood(self, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.info,
@@ -248,6 +169,9 @@ class Evol2G2M2S():
     def logprior(self):
         '''Impose des contraintes sur les paramètres'''
         return 0
+
+    def logprob(self):
+        return self.logprior() + self.loglikelihood(*self.FREEPARAMETERS)
 
     def get_logl(self, **kwargs):
         if not hasattr(self, 'migrad_out'):
@@ -267,8 +191,47 @@ class Evol2G2M2S():
         return 2*k + mdlogl
 
     # ------------------------------------------------------------------- #
+    #                              MINIMIZER                              #
+    # ------------------------------------------------------------------- #
+
+    def minimize(self, print_level=0, **kwargs):
+        '''Renvoie la meilleure valeur des paramètres'''
+        self.m_tot = iminuit.Minuit(self.loglikelihood,
+                                    print_level=print_level,
+                                    pedantic=False,
+                                    **self.GUESS,
+                                    **kwargs)
+
+        self.migrad_out = self.m_tot.migrad()
+
+        self.set_param([self.m_tot.values[k] for k in self.FREEPARAMETERS])
+
+    # ------------------------------------------------------------------- #
     #                               PLOTTER                               #
     # ------------------------------------------------------------------- #
+
+        # ----------------------------------------------------------- #
+        #                           Generic                           #
+        # ----------------------------------------------------------- #
+
+    def plot_a(self, x_lin):
+        return self.likelihood_tot(x_lin,
+                                   np.zeros(len(x_lin)),
+                                   **self.pltall)
+
+    def plot_y(self, x_lin):
+        return self.likelihood_y(x_lin,
+                                 np.zeros(len(x_lin)),
+                                 **self.pltyoung)
+
+    def plot_o(self, x_lin):
+        return self.likelihood_o(x_lin,
+                                 np.zeros(len(x_lin)),
+                                 **self.pltold)
+
+        # ----------------------------------------------------------- #
+        #                           Scatter                           #
+        # ----------------------------------------------------------- #
 
     def scatter(self, model=True, ax=None, show_leg=True, lssfr=True,
                 mod_lw=2, lw=.5, elw=1, ealpha=1, s=80,
@@ -317,6 +280,10 @@ class Evol2G2M2S():
 
         # plt.title('1GSNF model', fontsize=20)
 
+        # ----------------------------------------------------------- #
+        #                           Modeler                           #
+        # ----------------------------------------------------------- #
+
     def show_model(self, ax=None, shift=0,
                    facealpha=0.1, edgealpha=.8,
                    o_factor=-3, y_factor=2, **kwargs):
@@ -342,6 +309,10 @@ class Evol2G2M2S():
                          facecolor=plt.cm.viridis(0.98, facealpha),
                          edgecolor=plt.cm.viridis(0.98, edgealpha),
                          label='model old', **kwargs)
+
+        # ----------------------------------------------------------- #
+        #                           Totaler                           #
+        # ----------------------------------------------------------- #
 
     def show_model_tot(self, ax=None, fontsize='large', **kwargs):
         """ """
@@ -386,11 +357,8 @@ class Evol2G2M2SF(Evol2G2M2S):
     FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
                                          YOUNGPARAMETERS),
                                OLDPARAMETERS)
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
     # =================================================================== #
@@ -405,6 +373,10 @@ class Evol2G2M2SF(Evol2G2M2S):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
             (1-f)*self.likelihood_o(x, dx, mu_2, sigma_2)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
 
     def loglikelihood(self, f, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
@@ -430,11 +402,8 @@ class Evol1G1M1S(Evol2G2M2S):
     YOUNGPARAMETERS = []
     OLDPARAMETERS = []
     FREEPARAMETERS = ['mu', 'sigma']
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [0, 1]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
     # =================================================================== #
@@ -471,11 +440,8 @@ class Evol1G1M2S(Evol2G2M2S):
     YOUNGPARAMETERS = []
     OLDPARAMETERS = []
     FREEPARAMETERS = ['mu', 'sigma_m', 'sigma_p']
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [0.973, 1.5, 0.5]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
     # =================================================================== #
@@ -497,6 +463,10 @@ class Evol1G1M2S(Evol2G2M2S):
         norm = np.sqrt(2*np.pi)*(0.5*np.sqrt(dx**2+sigma_m**2)
                                  + 0.5*np.sqrt(dx**2+sigma_p**2))
         return likelihood/norm
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
 
     def loglikelihood(self, mu, sigma_m, sigma_p):
         '''La fonction à minimiser'''
@@ -567,11 +537,8 @@ class Evol3G2M1S(Evol2G2M2S):
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
     OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2']
     FREEPARAMETERS = OLDPARAMETERS
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
     # =================================================================== #
@@ -591,6 +558,10 @@ class Evol3G2M1S(Evol2G2M2S):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
             (1-info)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
 
     def loglikelihood(self, a, mu_1, sigma_1, mu_2):
         '''La fonction à minimiser'''
@@ -616,11 +587,8 @@ class Evol3G2M1SF(Evol3G2M1S):
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
     OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2']
     FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
     # =================================================================== #
@@ -635,6 +603,10 @@ class Evol3G2M1SF(Evol3G2M1S):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
             (1-f)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
 
     def loglikelihood(self, f, a, mu_1, sigma_1, mu_2):
         '''La fonction à minimiser'''
@@ -660,11 +632,8 @@ class Evol3G2M2S(Evol2G2M2S):
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
     OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
     FREEPARAMETERS = OLDPARAMETERS
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
     # =================================================================== #
@@ -690,6 +659,10 @@ class Evol3G2M2S(Evol2G2M2S):
             (1-info)*self.likelihood_o(x, dx, aa, mu_1, sigma_1,
                                        mu_2, sigma_2)
 
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
+
     def loglikelihood(self, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.info,
@@ -714,11 +687,8 @@ class Evol3G2M2SF(Evol3G2M2S):
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
     OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
     FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
     # =================================================================== #
@@ -735,6 +705,10 @@ class Evol3G2M2SF(Evol3G2M2S):
             (1-f)*self.likelihood_o(x, dx, a,
                                     mu_1, sigma_1,
                                     mu_2, sigma_2)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
 
     def loglikelihood(self, f, a, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
@@ -763,11 +737,8 @@ class Evol3G3M3S(Evol3G2M2S):
                       'mu_1', 'sigma_1',
                       'mu_2', 'sigma_2',
                       'mu_3', 'sigma_3']
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
     # =================================================================== #
@@ -792,6 +763,10 @@ class Evol3G3M3S(Evol3G2M2S):
             (1-info)*self.likelihood_o(x, dx, a,
                                        mu_2, sigma_2,
                                        mu_3, sigma_3)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
 
     def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
         '''La fonction à minimiser'''
@@ -822,11 +797,8 @@ class Evol3G3M3SF(Evol3G3M3S):
                       'mu_1', 'sigma_1',
                       'mu_2', 'sigma_2',
                       'mu_3', 'sigma_3']
-    PLTYOUNG = ["self.param['" + k + "']" for k in YOUNGPARAMETERS]
-    PLTOLD = ["self.param['" + k + "']" for k in OLDPARAMETERS]
-    PLTALL = ["self.param['" + k + "']" for k in FREEPARAMETERS]
     GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
-    GUESS = [k + ' = ' + str(v) for k, v in zip(FREEPARAMETERS, GUESSVAL)]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
     # =================================================================== #
@@ -846,6 +818,10 @@ class Evol3G3M3SF(Evol3G3M3S):
             (1-f)*self.likelihood_o(x, dx, a,
                                     mu_2, sigma_2,
                                     mu_3, sigma_3)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
 
     def loglikelihood(self, f, a, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
         '''La fonction à minimiser'''
