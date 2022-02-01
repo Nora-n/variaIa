@@ -26,18 +26,6 @@ variaIa.egg-info/
 
 *.egg
 
-build/lib/variaIa/__init__.py
-
-build/lib/variaIa/baserate.py
-
-build/lib/variaIa/ratefit.py
-
-build/lib/variaIa/stretchevol.py
-
-build/lib/variaIa/test.py
-
-build/lib/variaIa/
-
 Images/Archives/
 
 Images/png/
@@ -48,3 +36,5 @@ Images/png/
 Data/mmcls
 
 Data/pscls
+
+build/

@@ -194,11 +194,9 @@ class Evol2G2M2S():
     #                              MINIMIZER                              #
     # ------------------------------------------------------------------- #
 
-    def minimize(self, print_level=0, **kwargs):
+    def minimize(self, **kwargs):
         '''Renvoie la meilleure valeur des paramètres'''
         self.m_tot = iminuit.Minuit(self.loglikelihood,
-                                    print_level=print_level,
-                                    pedantic=False,
                                     **self.GUESS,
                                     **kwargs)
 
@@ -644,7 +642,8 @@ class Evol3G2M2S(Evol2G2M2S):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-    def get_a(self, aa):
+    @staticmethod
+    def get_a(aa):
         '''Get a in [0, 1] from aa parameter'''
         return(np.arctan(aa)/np.pi + 0.5)
 
@@ -877,8 +876,8 @@ class MockEvol():
     # ------------------------------------------------------------------- #
     #                               EXTFUNC                               #
     # ------------------------------------------------------------------- #
-
-    def delta(self, z):
+    @staticmethod
+    def delta(z):
         '''Gives the fraction of young SNe Ia as a function of redshift;
         taken from https://arxiv.org/abs/1806.03849'''
         K = 0.87

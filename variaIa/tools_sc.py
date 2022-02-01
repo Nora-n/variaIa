@@ -11,8 +11,8 @@ from variaIa import stretchevol
 d = pd.read_csv('../../../Data/sne/data_cheat.csv', sep=' ', index_col='CID')
 d_snf = pd.read_csv('../../../Data/sne/lssfr_paper_full_sntable.csv', sep=',')
 
-surveys = ['SNF', 'low-z', 'SDSS', 'PS1', 'SNLS', 'HST']
-nsurveys = ['nSNF', 'nlow-z', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
+surveys = ['SNF', 'LOWZ', 'SDSS', 'PS1', 'SNLS', 'HST']
+nsurveys = ['nSNF', 'nLOWZ', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
 
 su = ipw.Dropdown(options=surveys + ['All'] + nsurveys,
                   description='Survey:',
@@ -24,7 +24,7 @@ cons = ipw.Checkbox(value=False,
 raw_df_snf = d_snf.loc[d_snf['name'].str.contains(
     'SNF|LSQ|PTF', na=False, regex=True)]
 surv = {'SNF':   raw_df_snf,  # [raw_df_snf['salt2.Color'] < 0.3],
-        'low-z': d[d['IDSURVEY'].isin([5, 61, 62, 63, 64, 65, 66])],
+        'LOWZ': d[d['IDSURVEY'].isin([5, 61, 62, 63, 64, 65, 66])],
         'SDSS':  d[d['IDSURVEY'] == 1],
         'PS1':   d[d['IDSURVEY'] == 15],
         'SNLS':  d[d['IDSURVEY'] == 4],
@@ -33,7 +33,7 @@ surv = {'SNF':   raw_df_snf,  # [raw_df_snf['salt2.Color'] < 0.3],
 with open('../../../Data/zmax/zmax_mlim', 'rb') as f:
     z_max = pickle.load(f)
 z_max['HST'] = [10, 10]
-z_max['low-z'] = [10, 10]
+z_max['LOWZ'] = [10, 10]
 z_max['SDSS'][0] = 0.10
 z_max['PS1'][0] = 0.20
 z_max['SNLS'][0] = 0.30
@@ -131,8 +131,8 @@ def df_cons(cons):
     return(df)
 
 
-df_nc = df_cons(False)[df_cons(False)['survey'] != 'low-z']
-df_c = df_cons(True)[df_cons(True)['survey'] != 'low-z']
+df_nc = df_cons(False)[df_cons(False)['survey'] != 'LOWZ']
+df_c = df_cons(True)[df_cons(True)['survey'] != 'LOWZ']
 
 names = ['SNF' for i in range(len(z_zcuts['SNF']))]
 stretchs = list(x1_zcuts['SNF'])

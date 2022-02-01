@@ -200,11 +200,9 @@ class Evol3G3M4S():
     #                              MINIMIZER                              #
     # ------------------------------------------------------------------- #
 
-    def minimize(self, print_level=0, **kwargs):
+    def minimize(self, **kwargs):
         '''Renvoie la meilleure valeur des paramètres'''
         self.m_tot = iminuit.Minuit(self.loglikelihood,
-                                    print_level=print_level,
-                                    pedantic=False,
                                     **self.GUESS,
                                     **kwargs)
 
@@ -481,7 +479,7 @@ class Evol3G3M3S(Evol3G3M4S):
     FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
                                          YOUNGPARAMETERS),
                                OLDPARAMETERS)
-    GUESSVAL = [9.5, 2, 0.5, 9, 0.5, 10.5, 1, 0.5]
+    GUESSVAL = [9.5, 2, 0.5, 9, 0.5, 10.5, 1]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
