@@ -29,12 +29,12 @@ class generic():
         `self.model` from its string'''
         self.model = getattr(sys.modules[__name__], classname)
 
-    def fit(self, pandas, **kwargs):
+    def fit(self, pandas, guess=None, limits=None, **kwargs):
         '''Instantiates the class with the pandas,
         apply the `minimize` method,
         and gives that back as an output'''
         model = self.model(pandas)
-        model.minimize(**kwargs)
+        model.minimize(guess, limits, **kwargs)
         return(model)
 
 # =========================================================================== #
@@ -62,6 +62,8 @@ class Evol3G3M4S():
                                          YOUNGPARAMETERS),
                                OLDPARAMETERS)
     GUESSVAL = [9.5, 2, 0.5, 9, 0.5, 10.5, 1, 0.5]
+    LIMVAL = [None, None, (0, 1),
+              None, None, None, None, None]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
@@ -75,7 +77,7 @@ class Evol3G3M4S():
 
         self.redshifts = pandas.redshifts
         self.hostmass = pandas.hostmass
-        self.hostmass_err = pandas.hostmass_err
+        self.hostmass_err = np.sqrt(pandas.hostmass_err**2+0.1**2)
 
         if py:
             self.info = pandas.infor.values
@@ -182,7 +184,7 @@ class Evol3G3M4S():
     def get_logl(self, **kwargs):
         if not hasattr(self, 'migrad_out'):
             self.minimize(**kwargs)
-        return self.migrad_out[0]['fval']
+        return self.migrad_out.fval
 
     def get_bic(self):
         k = len(self.FREEPARAMETERS)
@@ -200,12 +202,25 @@ class Evol3G3M4S():
     #                              MINIMIZER                              #
     # ------------------------------------------------------------------- #
 
-    def minimize(self, **kwargs):
+    def minimize(self, guess, limits, **kwargs):
         '''Renvoie la meilleure valeur des paramètres'''
-        self.m_tot = iminuit.Minuit(self.loglikelihood,
-                                    **self.GUESS,
-                                    **kwargs)
+        if guess is None:
+            self.m_tot = iminuit.Minuit(self.loglikelihood,
+                                        **self.GUESS,
+                                        **kwargs)
+        else:
+            self.m_tot = iminuit.Minuit(self.loglikelihood,
+                                        guess,
+                                        **kwargs)
 
+        if limits == 'auto':
+            self.m_tot.limits = self.LIMVAL
+        if limits is None:
+            pass
+        else:
+            self.m_tot.limits = limits
+
+        self.m_tot.errordef = iminuit.Minuit.LIKELIHOOD
         self.migrad_out = self.m_tot.migrad()
 
         self.set_param([self.m_tot.values[k] for k in self.FREEPARAMETERS])
@@ -218,10 +233,16 @@ class Evol3G3M4S():
         #                           Generic                           #
         # ----------------------------------------------------------- #
 
-    def plot_a(self, x_lin):
-        return self.likelihood_tot(x_lin,
-                                   np.zeros(len(x_lin)),
-                                   **self.pltall)
+    def plot_a(self, z, x_lin):
+        if self.FIXED:
+            return(self.likelihood_tot(x_lin,
+                                       np.zeros(len(x_lin)),
+                                       **self.pltall))
+        else:
+            return self.likelihood_tot(self.delta(z),
+                                       x_lin,
+                                       np.zeros(len(x_lin)),
+                                       **self.pltall)
 
     def plot_y(self, x_lin):
         return self.likelihood_y(x_lin,
@@ -349,11 +370,11 @@ class Evol3G3M4S():
         self.amp = (prop['range'][1]-prop['range'][0])/prop['bins']
 
         ax.hist(self.hostmass, weights=(self.py),
-                facecolor=fco,
+                facecolor=fcy,
                 edgecolor='0.7', bottom=bottom,
                 **prop)
         ax.hist(self.hostmass, weights=self.py-1,
-                facecolor=fcy,
+                facecolor=fco,
                 edgecolor='0.7', bottom=bottom,
                 **prop)
 
@@ -374,7 +395,9 @@ class Evol3G3M4S():
         #                           Totaler                           #
         # ----------------------------------------------------------- #
 
-    def show_model_tot(self, ax=None, fontsize='large', **kwargs):
+    def show_model_tot(self, ax=None,
+                       z=0.05, mean=True,
+                       fontsize='large', **kwargs):
         """ """
         if ax is None:
             fig = plt.figure(figsize=[7, 3.5])
@@ -386,16 +409,17 @@ class Evol3G3M4S():
         x_lin = np.linspace(self.floor, self.ceil, 3000)
 
         ax.plot(x_lin,
-                self.plot_a(x_lin),
+                self.plot_a(z, x_lin),
                 color="C2",
                 label='model', **kwargs)
 
         ax.hist(self.pd.hostmass, density=True,
                 histtype='stepfilled',
                 color="0.6", alpha=0.7, zorder=8)
-        ax.vline(self.param['mu'],
-                 ymin=0, ymax=np.max(self.plot_a(x_lin)),
-                 color="C2")
+        if mean:
+            ax.vline(self.param['mu'],
+                     ymin=0, ymax=np.max(self.plot_a(z, x_lin)),
+                     color="C2")
 
         ax.set_xlabel(r'$\mathrm{M}_\mathrm{host}$', fontsize=fontsize)
         ax.set_ylabel(r'$\mathrm{Probability}$', fontsize=fontsize)
@@ -420,6 +444,8 @@ class Evol4G4M4S(Evol3G3M4S):
                                OLDPARAMETERS)
     GUESSVAL = [0.5, 8.5, 2, 10.0, 2,
                 0.5, 9, 0.5, 10.5, 1]
+    LIMVAL = [(0, 1), None, None, None, None,
+              (0, 1), None, None, None, None]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
@@ -480,6 +506,8 @@ class Evol3G3M3S(Evol3G3M4S):
                                          YOUNGPARAMETERS),
                                OLDPARAMETERS)
     GUESSVAL = [9.5, 2, 0.5, 9, 0.5, 10.5, 1]
+    LIMVAL = [None, None, (0, 1),
+              None, None, None, None]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
@@ -527,6 +555,8 @@ class Evol2G2M3S(Evol3G3M4S):
                                          YOUNGPARAMETERS),
                                OLDPARAMETERS)
     GUESSVAL = [9.5, 1, 10.5, 1, 0.5]
+    LIMVAL = [None, None,
+              None, None, None]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
@@ -553,6 +583,59 @@ class Evol2G2M3S(Evol3G3M4S):
                                                     mu, sigmadown, sigmaup)))
 
 # =========================================================================== #
+#                                 Asym + Asym                                 #
+# =========================================================================== #
+
+
+class Evol2G2M4S(Evol2G2M3S):
+    '''2G2M4S'''
+
+    # =================================================================== #
+    #                              Variables                              #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_y', 'sigmad_y', 'sigmau_y']
+    OLDPARAMETERS = ['mu_o', 'sigmad_o', 'sigmau_o']
+    FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
+                                         YOUNGPARAMETERS),
+                               OLDPARAMETERS)
+    GUESSVAL = [9.5, 1, 1, 10.5, 1, 0.5]
+    LIMVAL = [None, None, None,
+              None, None, None]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
+    FIXED = False
+
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
+
+    def likelihood_o(self, x, dx, mu_o, sigmad_o, sigmau_o):
+        '''Underlying mass distribution of old SNe Ia'''
+        return self.asymgauss(x, dx, mu_o, sigmad_o, sigmau_o)
+
+    def likelihood_y(self, x, dx, mu_y, sigmad_y, sigmau_y):
+        '''Underlying mass distribution of old SNe Ia'''
+        return self.asymgauss(x, dx, mu_y, sigmad_y, sigmau_y)
+
+    def likelihood_tot(self, info, x, dx,
+                       mu_y, sigmad_y, sigmau_y,
+                       mu_o, sigmad_o, sigmau_o):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return info*self.likelihood_y(x, dx, mu_y, sigmad_y, sigmau_y) + \
+            (1-info)*self.likelihood_o(x, dx, mu_o, sigmad_o, sigmau_o)
+
+    def loglikelihood(self, mu_y, sigmad_y, sigmau_y,
+                      mu_o, sigmad_o, sigmau_o):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
+                                                    self.hostmass,
+                                                    self.hostmass_err,
+                                                    mu_y, sigmad_y, sigmau_y,
+                                                    mu_o, sigmad_o, sigmau_o)))
+
+
+# =========================================================================== #
 #                                Gauss + gauss                                #
 # =========================================================================== #
 
@@ -571,6 +654,8 @@ class Evol2G2M2S(Evol2G2M3S):
                                          YOUNGPARAMETERS),
                                OLDPARAMETERS)
     GUESSVAL = [9.5, 1, 10.5, 1]
+    LIMVAL = [None, None,
+              None, None]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
@@ -612,6 +697,7 @@ class Evol1G1M1S(Evol2G2M2S):
     OLDPARAMETERS = []
     FREEPARAMETERS = ['mu', 'sigma']
     GUESSVAL = [10, 1]
+    LIMVAL = [None, None]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
@@ -650,6 +736,7 @@ class Evol1G1M2S(Evol1G1M1S):
     OLDPARAMETERS = []
     FREEPARAMETERS = ['mu', 'sigmadown', 'sigmaup']
     GUESSVAL = [10, 1, 0.5]
+    LIMVAL = [None, None, None]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
