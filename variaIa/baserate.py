@@ -4,7 +4,7 @@
 import numpy as np
 from scipy import stats
 from astropy.cosmology import Planck15 as cosmo
-from modefit.baseobjects import BaseModel, BaseFitter, DataHandler, BaseObject
+from modefit.baseobjects import BaseModel, BaseFitter, BaseObject
 import matplotlib.pyplot as plt
 
 
@@ -72,7 +72,7 @@ class RateFitter(BaseFitter):
         """ """
         if len(fitted_flag) != self.ndata:
             raise ValueError(
-                "Size of the data (%d) do not match that of the given fitted_flag (%d)"
+                "Data size (%d) doen't match the given fitted_flag (%d)"
                 % (self.ndata, len(fitted_flag)))
 
         self._side_properties["fitted_flag"] =\
@@ -86,14 +86,16 @@ class RateFitter(BaseFitter):
     #                               PLOTTER                               #
     # ------------------------------------------------------------------- #
 
-    def show(self, datacolor="C0", modelcolor="C1", stepalpha=0.2,
+    def show(self, ax=None,
+             datacolor="C0", modelcolor="C1", stepalpha=0.2,
              add_proba=True):
         """ """
-        fig = plt.figure(figsize=[10, 6])
+        if ax is None:
+            fig = plt.figure(figsize=[7, 3.5])
+            ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
 
-        ax = fig.add_axes([0.12, 0.15, 1-0.12*2, 0.75])
         ax.step(self._central_redshiftranges, self.counts, where="mid",
-                alpha=stepalpha)
+                color=datacolor, alpha=stepalpha)
 
         if self.fitted_flag is not None and not np.all(self.fitted_flag):
             prop = dict(marker="o", facecolors="None", edgecolors=datacolor)
@@ -110,19 +112,17 @@ class RateFitter(BaseFitter):
         prop = dict(marker="o")
 
         ax.scatter(self._central_redshiftranges[self.fitted_flag],
-                   self.fitted_counts, c=datacolor, **prop)
+                   self.fitted_counts,
+                   color=datacolor, **prop)
         ax.scatter(self._central_redshiftranges[self.fitted_flag],
-                   self.get_model(self.fitted_redshift_ranges), c=modelcolor,
-                   **prop)
+                   self.get_model(self.fitted_redshift_ranges),
+                   color=modelcolor, **prop)
 
         ax.set_ylim(0)
         ax.set_ylabel(r'$\mathrm{counts}$', fontsize='x-large')
         ax.set_xlabel(r'$\mathrm{redshift}$', fontsize='x-large')
 
-        ax.tick_params(direction='in',
-                       length=5, width=1,
-                       labelsize=15,
-                       top=True, right=True)
+        ax.tick_params(labelsize='x-large')
 
         if add_proba:
             axt = ax.twinx()
@@ -144,8 +144,6 @@ class RateFitter(BaseFitter):
 
             axt.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
             axt.tick_params(labelsize=15)
-
-        return {"fig": fig, "ax": ax}
 
     def pshow(self, guess):
         """ """
@@ -517,6 +515,7 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
     dict of lists of itsc_inf, itsc_med and itsc_sup.
     Returns list of z_linspace, cdf med and std, and (zinf, max, sup)"""
     import math
+    from numpy.random import randint as rdint
     from scipy import interpolate
 
     # set empty base model and empty ratefitter to be filled
@@ -531,16 +530,16 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
     if survey == 'SNLS':
         for i in range(loops):
             # define start of histogram randomly between 0.06 and 0.12
-            data_r_a = np.random.randint(math.floor(rawdata[0]*100)/2,
-                                         math.floor(rawdata[0]*100))/100
+            data_r_a = rdint(math.floor(rawdata[0]*100)/2,
+                             math.floor(rawdata[0]*100))/100
             # define end of histogram randomly between 1.10 and 1.15
-            data_r_b = np.random.randint(math.ceil(rawdata[-1]*10)*10,
-                                         (math.ceil(rawdata[-1]*10)
-                                        + math.floor(rawdata[0]*10)/2)*10)/100
+            data_r_b = rdint(math.ceil(rawdata[-1]*10)*10,
+                             (math.ceil(rawdata[-1]*10)
+                              + math.floor(rawdata[0]*10)/2)*10)/100
             # complete random data is start + normal data + end
             data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
             # define total number of bins
-            nb_bins_r = np.random.randint(5, 20)
+            nb_bins_r = rdint(5, 20)
             # define number of fits for each number of total bins
             nb_fits_per_dist = 10
             # get the counts and limits of bins
@@ -558,7 +557,7 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
                 # random bin from 3 to max
                 rate_r.set_fitted_flag(rate_r._central_redshiftranges
                                        < rate_r._central_redshiftranges
-                                       [np.random.randint(3, nb_bins_r)])
+                                       [rdint(3, nb_bins_r)])
                 rate_r.fit(a_guess=guess)
 
                 # fill i loop with positions of bins, k times
@@ -573,13 +572,13 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
                                   x[i][k], y[i][k], kind='linear')(z_intp))
     else:
         for i in range(loops):
-            data_r_a = np.random.randint(math.floor(rawdata[0]*1000)/2,
-                                         math.floor(rawdata[0]*1000))/1000
-            data_r_b = np.random.randint(math.ceil(rawdata[-1]*100)*10,
-                                         (math.ceil(rawdata[-1]*100)
-                                        + math.floor(rawdata[0]*100)/2)*10)/1000
+            data_r_a = rdint(math.floor(rawdata[0]*1000)/2,
+                             math.floor(rawdata[0]*1000))/1000
+            data_r_b = rdint(math.ceil(rawdata[-1]*100)*10,
+                             (math.ceil(rawdata[-1]*100)
+                              + math.floor(rawdata[0]*100)/2)*10)/1000
             data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
-            nb_bins_r = np.random.randint(5, 20)
+            nb_bins_r = rdint(5, 20)
             nb_fits_per_dist = 10
             counts_r, bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r))
             bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
@@ -591,7 +590,7 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
             for k in range(nb_fits_per_dist):
                 rate_r.set_fitted_flag(rate_r._central_redshiftranges
                                        < rate_r._central_redshiftranges
-                                       [np.random.randint(3, nb_bins_r)])
+                                       [rdint(3, nb_bins_r)])
                 rate_r.fit(a_guess=guess)
 
                 x[i].append(rate_r._central_redshiftranges)
@@ -636,9 +635,10 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
 
     surveys = list(z_lins.keys())
 
-    colors = {'SDSS': 'lime',
-              'PS1': 'blue',
-              'SNLS': 'red'}
+    smap = plt.cm.get_cmap('cividis')
+    colors = {'SDSS': smap(0.1),
+              'PS1': smap(0.5),
+              'SNLS': smap(0.8)}
 
     for survey in surveys:
         ax.plot(z_lins[survey],
@@ -648,7 +648,7 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
         ax.fill_between(z_lins[survey],
                         meds[survey] - stds[survey],
                         meds[survey] + stds[survey],
-                        color=colors[survey], alpha=0.1)
+                        color=colors[survey], alpha=0.2)
         if show_itsc:
             ax.vline(z_max[survey][1],
                      color=colors[survey],
@@ -657,7 +657,7 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
                     itsc[survey][1],
                     color="black", marker='o')
             ax.hline(itsc[survey][1],
-                     color="0.3", lw=1.0)
+                     color="0.3", ls='--', lw=1.0)
 # label=r"$z_{\mathrm{max,med}}$")
         if show_infsup:
             ax.vline(z_max[survey][0],
@@ -667,7 +667,7 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
                     itsc[survey][0],
                     color=".7", marker='o')
             ax.hline(itsc[survey][0],
-                     color="0.3", lw=1.0)
+                     color="0.3", ls='-.', lw=1.0)
 # label=r"$z_{\mathrm{max,inf/sup}}$")
             ax.vline(z_max[survey][2],
                      color=colors[survey],
@@ -676,12 +676,9 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
                     itsc[survey][2],
                     color=".7", marker='o')
             ax.hline(itsc[survey][2],
-                     color="0.3", lw=1.0)
+                     color="0.3", ls='-.', lw=1.0)
 
-    ax.tick_params(direction='in',
-                   length=5, width=1,
-                   labelsize=12,
-                   top=True, right=True)
+    ax.tick_params(labelsize='x-large')
 
     ax.set_xlim(np.min(list(z_lins.values())),
                 np.max(list(z_lins.values())))
@@ -690,11 +687,10 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
                 np.max(np.asarray(list(meds.values()))
                        + np.asarray(list(stds.values()))))
 
-    ax.set_xlabel(r'$\mathrm{redshift}$', fontsize='x-large')
-    ax.set_ylabel(r'$\mathrm{Poisson\,\,cdf}$', fontsize='x-large')
+    ax.set_xlabel('redshift', fontsize='x-large')
+    ax.set_ylabel('Poisson cdf', fontsize='x-large')
 
-    plt.legend(ncol=1, loc='upper right')
+    ax.legend(ncol=1, loc='upper right')
 
-    plt.title(r'$\mathrm{Evolution\,\,of\,\,poisson\,\,cdf\,\,with\,\,}$' +
-              r'$\mathrm{median\,\,for\,\,surveys}$',
-              fontsize='x-large')
+    ax.set_title('Statistical evolution of redshift limit',
+                 fontsize='x-large')

@@ -17,8 +17,10 @@ import matplotlib.pyplot as plt
 #                                    Pandas                                   #
 # =========================================================================== #
 
-d = pd.read_csv('../Data/data_cheat.csv', sep=' ', index_col='CID')
-d_snf = pd.read_csv('../Data/lssfr_paper_full_sntable.csv', sep=',')
+d = pd.read_csv('../../../../Data/sne/data_cheat.csv',
+                sep=' ', index_col='CID')
+d_snf = pd.read_csv('../../../../Data/sne/lssfr_paper_full_sntable.csv',
+                    sep=',')
 
 # =========================================================================== #
 #                                 General Dict                                #

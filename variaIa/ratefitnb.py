@@ -126,10 +126,10 @@ class RateFit():
         """ """
         return self.get_loglikeDOF(a, zmax) + self.get_logprior(a, zmax)
 
-    def minimize(self, **kwargs):
+    def minimize(self, limits, guess_a, guess_zmax):
         '''Renvoie la meilleure valeur des paramètres'''
-        self.m = im.Minuit(self.get_logprob, **kwargs,
-                           print_level=0, pedantic=False)
+        self.m = im.Minuit(self.get_logprob, a=guess_a, zmax=guess_zmax)
+        self.m.limits = limits
 
         self.migrad_out = self.m.migrad()
 
@@ -175,7 +175,7 @@ class RateFit():
                      color="orange",
                      lw=1.0, label="zmax_guess")
 
-        zerr = self.migrad_out[1][1][3]
+        zerr = self.migrad_out.errors[-1]
 
         ax.vspan(self.param['zmax']-zerr,
                  self.param['zmax']+zerr,

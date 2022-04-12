@@ -194,12 +194,23 @@ class Evol2G2M2S():
     #                              MINIMIZER                              #
     # ------------------------------------------------------------------- #
 
-    def minimize(self, **kwargs):
+    def minimize(self, guess=None, limits=None, **kwargs):
         '''Renvoie la meilleure valeur des paramètres'''
-        self.m_tot = iminuit.Minuit(self.loglikelihood,
-                                    **self.GUESS,
-                                    **kwargs)
+        if guess is None:
+            self.m_tot = iminuit.Minuit(self.loglikelihood,
+                                        **self.GUESS,
+                                        **kwargs)
+        else:
+            self.m_tot = iminuit.Minuit(self.loglikelihood,
+                                        guess,
+                                        **kwargs)
 
+        if limits is None:
+            pass
+        else:
+            self.m_tot.limits = limits
+
+        self.m_tot.errordef = iminuit.Minuit.LIKELIHOOD
         self.migrad_out = self.m_tot.migrad()
 
         self.set_param([self.m_tot.values[k] for k in self.FREEPARAMETERS])

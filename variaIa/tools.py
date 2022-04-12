@@ -8,7 +8,22 @@ import ipywidgets as ipw
 
 from variaIa import stretchevol
 
-d = pd.read_csv('../../../Data/sne/data_cheat.csv', sep=' ', index_col='CID')
+pantheon_filename = '../../../Data/sne/ancillary_g10_n.FITRES'
+with open(pantheon_filename) as f:
+    for i, line in enumerate(f):
+        if line.startswith('VARNAMES:'):
+            line = line.replace(',', ' ')
+            line = line.replace('\n', '')
+            names = line.split()
+        elif line.startswith(('SN', 'ROW')):
+            startrows = i
+            break
+d = pd.read_csv(pantheon_filename, header=None,
+                names=names, skiprows=startrows,
+                delim_whitespace=True, comment='#')
+d = d.drop('VARNAMES:', axis=1)
+
+# d = pd.read_csv('../../../Data/sne/data_cheat.csv', sep=' ', index_col='CID')
 d_snf = pd.read_csv('../../../Data/sne/lssfr_paper_full_sntable.csv', sep=',')
 
 surveys = ['SNF', 'LOWZ', 'SDSS', 'PS1', 'SNLS', 'HST']
