@@ -128,8 +128,17 @@ class Evol2G2M2S():
         self.param = {k: v for k, v in zip(self.FREEPARAMETERS,
                                            np.atleast_1d(param))}
         self.pltyoung = {k: self.param[k] for k in self.YOUNGPARAMETERS}
+        self.pltmy = {k: self.param[k]
+                      for k in self.YOUNGPARAMETERS
+                      if 'mu' in k}
         self.pltold = {k: self.param[k] for k in self.OLDPARAMETERS}
+        self.pltmo = {k: self.param[k]
+                      for k in self.OLDPARAMETERS
+                      if 'mu' in k}
         self.pltall = {k: self.param[k] for k in self.FREEPARAMETERS}
+        self.pltma = {k: self.param[k]
+                      for k in self.FREEPARAMETERS
+                      if 'mu' in k}
 
     # ------------------------------------------------------------------- #
     #                               FITTER                                #
@@ -176,7 +185,7 @@ class Evol2G2M2S():
     def get_logl(self, **kwargs):
         if not hasattr(self, 'migrad_out'):
             self.minimize(**kwargs)
-        return self.migrad_out[0]['fval']
+        return self.migrad_out.fval
 
     def get_bic(self):
         k = len(self.FREEPARAMETERS)
@@ -223,34 +232,159 @@ class Evol2G2M2S():
         #                           Generic                           #
         # ----------------------------------------------------------- #
 
-    def plot_a(self, x_lin):
-        return self.likelihood_tot(x_lin,
-                                   np.zeros(len(x_lin)),
-                                   **self.pltall)
+    def plot_a(self, x_lin, z=None, f=None):
+        if self.FIXED:
+            return(self.likelihood_tot(x_lin,
+                                       np.zeros(len(x_lin)),
+                                       **self.pltall))
+        else:
+            if (z is None) and (f is not None):
+                return self.likelihood_tot(f,
+                                           x_lin,
+                                           np.zeros(len(x_lin)),
+                                           **self.pltall)
+            elif (z is not None) and (f is None):
+                return self.likelihood_tot(self.delta(z),
+                                           x_lin,
+                                           np.zeros(len(x_lin)),
+                                           **self.pltall)
+            elif (z is None) and (f is None):
+                raise NameError('Either `z` or `f` must be given')
+            elif (z is not None) and (f is not None):
+                raise NameError("`z` and `f` can't both be given")
+
+    def plot_ga(self, xlin,
+                z=None, f=None,
+                g_ls_y='--', g_ls_o='-.',
+                g_c_y=plt.cm.viridis(0.05),
+                g_c_o=plt.cm.viridis(0.98)):
+        if (z is None) and (f is not None):
+            if bool(self.plot_gy(xlin)):
+                mode1 = f*np.asarray(self.plot_gy(xlin))
+            else:
+                mode1 = f*np.asarray([self.plot_y(xlin)])
+            ls_y = [g_ls_y for i in range(len(mode1))]
+            c_y = [g_c_y for i in range(len(mode1))]
+            if bool(self.plot_go(xlin)):
+                mode2 = (1-f)*np.asarray(self.plot_go(xlin))
+            else:
+                mode2 = (1-f)*np.asarray([self.plot_o(xlin)])
+            ls_o = [g_ls_o for i in range(len(mode2))]
+            c_o = [g_c_o for i in range(len(mode2))]
+            return (np.vstack((mode1, mode2)),
+                    np.concatenate((ls_y, ls_o)),
+                    np.concatenate((c_y, c_o)))
+        elif (z is not None) and (f is None):
+            if bool(self.plot_gy(xlin)):
+                mode1 = self.delta(z)*np.asarray(self.plot_gy(xlin))
+            else:
+                mode1 = self.delta(z)*np.asarray([self.plot_y(xlin)])
+            ls_y = [g_ls_y for i in range(len(mode1))]
+            c_y = [g_c_y for i in range(len(mode1))]
+            if bool(self.plot_go(xlin)):
+                mode2 = (1-self.delta(z))*np.asarray(self.plot_go(xlin))
+            else:
+                mode2 = (1-self.delta(z))*np.asarray([self.plot_o(xlin)])
+            ls_o = [g_ls_o for i in range(len(mode2))]
+            c_o = [g_c_o for i in range(len(mode2))]
+            return (np.vstack((mode1, mode2)),
+                    np.concatenate((ls_y, ls_o)),
+                    np.concatenate((c_y, c_o)))
+        elif (z is None) and (f is None):
+            raise NameError('Either `z` or `f` must be given')
+        elif (z is not None) and (f is not None):
+            raise NameError("`z` and `f` can't both be given")
+
+    def plot_evol(self, z=None, f=None):
+        pnums = [p.split('_')[-1] for p in self.YOUNGPARAMETERS]
+        pnums = np.unique([p for p in pnums if len(p) == 1])
+        if len(pnums) == 2:
+            bb = [self.param[k] for k in self.YOUNGPARAMETERS if '_' not in k]
+            b = self.get_a(bb[0])
+            mode1 = b*self.param['mu_'+pnums[0]] +\
+                (1-b)*self.param['mu_'+pnums[1]]
+        elif len(pnums) == 1:
+            mode1 = self.param['mu_'+pnums[0]]
+        elif len(pnums) == 0:
+            return self.pltma['mu']
+        pnums = [p.split('_')[-1] for p in self.OLDPARAMETERS]
+        pnums = np.unique([p for p in pnums if len(p) == 1])
+        if len(pnums):
+            aa = [self.param[k] for k in self.OLDPARAMETERS if '_' not in k]
+            a = self.get_a(aa[0])
+            mode2 = a*self.param['mu_'+pnums[0]] +\
+                (1-a)*self.param['mu_'+pnums[1]]
+        else:
+            mode2 = self.param['mu_'+pnums[0]]
+        if self.FIXED:
+            f = self.param['f']
+            return f*mode1 + (1-f)*mode2
+        else:
+            if (z is None) and (f is not None):
+                return f*mode1 + (1-f)*mode2
+            elif (z is not None) and (f is None):
+                return self.delta(z)*mode1 + (1-self.delta(z))*mode2
+            elif (z is None) and (f is None):
+                raise NameError('Either `z` or `f` must be given')
+            elif (z is not None) and (f is not None):
+                raise NameError("`z` and `f` can't both be given")
 
     def plot_y(self, x_lin):
         return self.likelihood_y(x_lin,
                                  np.zeros(len(x_lin)),
                                  **self.pltyoung)
 
+    def plot_gy(self, xlin):
+        aa = [self.param[k] for k in self.YOUNGPARAMETERS if '_' not in k]
+        if bool(aa):
+            a = self.get_a(aa[0])
+            pnums = [p.split('_')[-1] for p in self.YOUNGPARAMETERS]
+            pnums = np.unique([p for p in pnums if len(p) == 1])
+            return [a*self.gauss(xlin, 0,
+                                 self.pltyoung['mu_'+pnums[0]],
+                                 self.pltyoung['sigma_'+pnums[0]]),
+                    (1-a)*self.gauss(xlin, 0,
+                                     self.pltyoung['mu_'+pnums[1]],
+                                     self.pltyoung['sigma_'+pnums[1]])]
+        else:
+            return []
+
     def plot_o(self, x_lin):
         return self.likelihood_o(x_lin,
                                  np.zeros(len(x_lin)),
                                  **self.pltold)
 
+    def plot_go(self, xlin):
+        aa = [self.param[k] for k in self.OLDPARAMETERS if '_' not in k]
+        if bool(aa):
+            a = self.get_a(aa[0])
+            pnums = [p.split('_')[-1] for p in self.OLDPARAMETERS]
+            pnums = np.unique([p for p in pnums if len(p) == 1])
+            return [a*self.gauss(xlin, 0,
+                                 self.pltold['mu_'+pnums[0]],
+                                 self.pltold['sigma_'+pnums[0]]),
+                    (1-a)*self.gauss(xlin, 0,
+                                     self.pltold['mu_'+pnums[1]],
+                                     self.pltold['sigma_'+pnums[1]])]
+        else:
+            return []
+
         # ----------------------------------------------------------- #
         #                           Scatter                           #
         # ----------------------------------------------------------- #
 
-    def scatter(self, model=True, ax=None, show_leg=True, lssfr=True,
-                mod_lw=2, lw=.5, elw=1, ealpha=1, s=80,
-                facealpha=1, fontsize='large'):
+    def scatter(self, ax=None, axh=None,
+                model=True, show_text=True,
+                txt_old='Vieux', txt_yng='Jeune',
+                show_leg=True, lssfr=True, shift=lssfr_med,
+                mod_lw=1, lw=1, elw=1, ealpha=1, s=80,
+                facealpha=1, fontsize='x-large'):
         '''Trace le nuage de points et les fits
         model=False ne montre que les données du pandas'''
         dgmap = plt.cm.get_cmap('viridis')
 
         if ax is None:
-            fig = plt.figure(figsize=[8, 5])
+            fig = plt.figure(figsize=[6, 4])
             ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
 
         else:
@@ -276,77 +410,439 @@ class Evol2G2M2S():
             ax.vline(lssfr_med,
                      color='0', alpha=1, linewidth=lw)
 
-            ax.set_ylim([self.floor, self.ceil])
+            if show_text:
+                ax.text(-14.1, 3, txt_old,
+                        ha='left', va='top',
+                        fontsize='x-large',
+                        color=plt.cm.viridis(1.00))
 
-            ax.set_xlabel(r'$\mathrm{log(LsSFR)}$', fontsize=fontsize)
-            ax.set_ylabel(r'$\mathrm{x}_1$', fontsize=fontsize)
+                ax.text(-9.2, 3, txt_yng,
+                        ha='right', va='top',
+                        fontsize='x-large',
+                        color=plt.cm.viridis(0.05, 0.5))
+
+                ax.set_xlim(-14.2, -9.05)
+                ax.set_ylim(-3.2, 3.2)
 
         if model:
-            self.show_model(ax=ax, shift=lssfr_med, lw=mod_lw)
+            if axh is None:
+                self.show_model(ax=ax, shift=lssfr_med,
+                                lw=mod_lw, rotate=True,
+                                legend=show_leg, zorder=8)
+            else:
+                prop = dict(orientation='horizontal',
+                            histtype='step',
+                            fill=True,
+                            range=(-3, 3), bins=14,
+                            lw=1)
+
+                amp = (prop['range'][1] - prop['range'][0])/prop['bins']
+
+                axh.hist(self.stretchs, weights=self.py,
+                         facecolor=plt.cm.viridis(0.05, 0.5),
+                         edgecolor='0.7',
+                         **prop)
+                axh.hist(self.stretchs, weights=(self.py-1),
+                         facecolor=plt.cm.viridis(0.95, 0.5),
+                         edgecolor="0.7",
+                         **prop)
+
+                self.show_model(ax=axh, rotate=True,
+                                o_factor=-amp*np.sum(1-self.py),
+                                y_factor=amp*np.sum(self.py),
+                                facecolor_y='none', facecolor_o='none',
+                                legend=False,
+                                lw=1, zorder=8)
+                axh.set_ylim(*ax.get_ylim())
+                axh.set_xlabel('')
+                axh.set_ylabel('')
+                axh.set_yticks([])
+                axh.set_xticks([])
+                axh.set_frame_on(False)
+
+                if show_text:
+                    axh.text(-1.30, 3, txt_old,
+                             ha='right', va='top',
+                             fontsize='x-large',
+                             color=plt.cm.viridis(1.00))
+
+                    axh.text(1.30, 3, txt_yng,
+                             ha='left', va='top',
+                             fontsize='x-large',
+                             color=plt.cm.viridis(0.05, 0.5))
+
+        ax.set_xlabel(r'log(LsSFR)', fontsize=fontsize)
+        ax.set_ylabel(r'$x_1$', fontsize=fontsize)
 
         if show_leg:
             ax.legend(ncol=1, loc='upper left')
-
-        # plt.title('1GSNF model', fontsize=20)
 
         # ----------------------------------------------------------- #
         #                           Modeler                           #
         # ----------------------------------------------------------- #
 
-    def show_model(self, ax=None, shift=0,
-                   facealpha=0.1, edgealpha=.8,
-                   o_factor=-3, y_factor=2, **kwargs):
+    def show_model(self, ax=None, shift=0, rotate=False,
+                   facecolor_y=plt.cm.viridis(0.05, 0.1),
+                   facecolor_o=plt.cm.viridis(0.98, 0.1),
+                   edgecolor_y=plt.cm.viridis(0.05),
+                   edgecolor_o=plt.cm.viridis(0.98),
+                   o_label='modèle vieux', y_label='modèle jeune',
+                   o_factor=-1, y_factor=1,
+                   means=False, gauss=False,
+                   legend=True, leg_kwargs={},
+                   axes_l=True, y_l='Probabilité',
+                   **kwargs):
         """ """
         if ax is None:
-            fig = plt.figure(figsize=[8, 5])
+            fig = plt.figure(figsize=[6, 4])
             ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
 
-        x_linspace = np.linspace(self.floor, self.ceil, 3000)
+        xlin = np.linspace(self.floor, self.ceil, 3000)
 
-        ax.fill_betweenx(x_linspace,
-                         y_factor*self.plot_y(x_linspace)
-                         + shift,
-                         shift,
-                         facecolor=plt.cm.viridis(0.05, facealpha),
-                         edgecolor=plt.cm.viridis(0.05, edgealpha),
-                         label='model young', **kwargs)
+        if rotate:
+            ax.fill_betweenx(xlin,
+                             y_factor*self.plot_y(xlin)
+                             + shift,
+                             shift,
+                             facecolor=facecolor_y,
+                             edgecolor=edgecolor_y,
+                             label=y_label, **kwargs)
+            ax.fill_betweenx(xlin,
+                             o_factor*self.plot_o(xlin)
+                             + shift,
+                             shift,
+                             facecolor=facecolor_o,
+                             edgecolor=edgecolor_o,
+                             label=o_label, **kwargs)
+            ax.axvline(shift, color='k', lw=1, zorder=10)
+            if axes_l:
+                ax.set_ylabel('$x_1$', fontsize='x-large')
+                ax.set_xlabel(y_l, fontsize='x-large')
+            if means:
+                self.show_means(ax=ax, shift=shift, rotate=rotate)
+            else:
+                pass
 
-        ax.fill_betweenx(x_linspace,
-                         o_factor*self.plot_o(x_linspace)
-                         + shift,
-                         shift,
-                         facecolor=plt.cm.viridis(0.98, facealpha),
-                         edgecolor=plt.cm.viridis(0.98, edgealpha),
-                         label='model old', **kwargs)
+        else:
+            ax.fill_between(xlin,
+                            y_factor*self.plot_y(xlin)
+                            + shift,
+                            shift,
+                            facecolor=facecolor_y,
+                            edgecolor=edgecolor_y,
+                            label=y_label, **kwargs)
+            ax.fill_between(xlin,
+                            o_factor*self.plot_o(xlin)
+                            + shift,
+                            shift,
+                            facecolor=facecolor_o,
+                            edgecolor=edgecolor_o,
+                            label=o_label, **kwargs)
+            ax.axhline(shift, color='k', lw=1, zorder=10)
+            if axes_l:
+                ax.set_ylabel(y_l, fontsize='x-large')
+                ax.set_xlabel('$x_1$', fontsize='x-large')
+            if means:
+                self.show_means(ax=ax, shift=shift)
+            if gauss:
+                self.show_gauss(ax=ax, shift=shift)
+        if legend:
+            ax.legend(**leg_kwargs)
+        return ax
 
         # ----------------------------------------------------------- #
-        #                           Totaler                           #
+        #                           Meansho                           #
         # ----------------------------------------------------------- #
 
-    def show_model_tot(self, ax=None, fontsize='large', **kwargs):
+    def show_means(self, ax=None,
+                   z=None, f=None,
+                   o_factor=-1, y_factor=1,
+                   shift=0, rotate=False,
+                   tot=False,
+                   mu_c='k', mu_ls='--', mu_lw=1):
         """ """
         if ax is None:
-            fig = plt.figure(figsize=[8, 5])
+            fig = plt.figure(figsize=[6, 4])
             ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
 
         else:
             fig = ax.figure
 
-        x_linspace = np.linspace(self.floor, self.ceil, 3000)
+        if (z is None) and (f is not None):
+            y_fac = f
+            o_fac = 1-f
+        elif (z is not None) and (f is None):
+            y_fac = self.delta(z)
+            o_fac = 1-self.delta(z)
+        elif (z is None) and (f is None):
+            y_fac = y_factor
+            o_fac = o_factor
+        elif (z is not None) and (f is not None):
+            raise NameError("`z` and `f` can't both be given")
 
-        ax.plot(x_linspace,
-                self.plot_a(x_linspace),
-                color="C2",
-                label='model', **kwargs)
+        if not tot:
+            if rotate:
+                for muo in self.pltmo.values():
+                    ax.hline(muo,
+                             xmin=shift,
+                             xmax=o_fac*(self.plot_o([muo])+shift),
+                             color=mu_c, ls=mu_ls, lw=mu_lw, zorder=0)
+                for muy in self.pltmy.values():
+                    ax.hline(muy,
+                             xmin=shift,
+                             xmax=y_fac*(self.plot_y([muy])+shift),
+                             color=mu_c, ls=mu_ls, lw=mu_lw, zorder=0)
+            else:
+                for muo in self.pltmo.values():
+                    ax.vline(muo,
+                             ymin=shift,
+                             ymax=o_fac*(self.plot_o([muo])+shift),
+                             color=mu_c, ls=mu_ls, lw=mu_lw, zorder=0)
+                for muy in self.pltmy.values():
+                    ax.vline(muy,
+                             ymin=shift,
+                             ymax=y_fac*(self.plot_y([muy])+shift),
+                             color=mu_c, ls=mu_ls, lw=mu_lw, zorder=0)
+        if tot:
+            if (self.FIXED) and not (bool(self.GLOBALPARAMETERS)):
+                xlin = np.linspace(self.floor, self.ceil, 1000)
+                ax.vline(self.param['mu'],
+                         ymin=0, ymax=np.max(self.plot_a(xlin)),
+                         color=mu_c, ls=mu_ls, lw=mu_lw, zorder=0)
+            else:
+                for mua in self.pltma.values():
+                    ax.vline(mua,
+                             ymin=0, ymax=self.plot_a([mua], z, f),
+                             color=mu_c, ls=mu_ls, lw=mu_lw, zorder=0)
 
-        ax.hist(self.pd.stretchs, density=True, histtype='step',
-                color="0.5", alpha=1, zorder=8)
-        ax.vline(self.param['mu'],
-                 ymin=0, ymax=np.max(self.plot_a(x_linspace)),
-                 color="C2")
+        # ----------------------------------------------------------- #
+        #                           Gaushow                           #
+        # ----------------------------------------------------------- #
 
-        ax.set_xlabel(r'$\mathrm{x}_1$', fontsize=fontsize)
-        ax.set_ylabel(r'$\mathrm{Probability}$', fontsize=fontsize)
+    def show_gauss(self, ax=None,
+                   z=None, f=None,
+                   o_factor=-1, y_factor=1,
+                   shift=0,
+                   g_c_o='0.7', g_ls_o=':',
+                   g_c_y='0.7', g_ls_y='-.',
+                   g_lw=1):
+        """ """
+        if ax is None:
+            fig = plt.figure(figsize=[6, 4])
+            ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+        else:
+            fig = ax.figure
+
+        xlin = np.linspace(self.floor, self.ceil, 3000)
+        if (z is None) and (f is not None):
+            y_fac = f
+            o_fac = 1-f
+        elif (z is not None) and (f is None):
+            y_fac = self.delta(z)
+            o_fac = 1-self.delta(z)
+        elif (z is None) and (f is None):
+            y_fac = y_factor
+            o_fac = o_factor
+        elif (z is not None) and (f is not None):
+            raise NameError("`z` and `f` can't both be given")
+        if bool(self.plot_gy(xlin)):
+            for toplot in self.plot_gy(xlin):
+                ax.plot(xlin, y_fac*toplot+shift,
+                        color=g_c_y, ls=g_ls_y, lw=g_lw)
+        if bool(self.plot_go(xlin)):
+            for toplot in self.plot_go(xlin):
+                ax.plot(xlin, o_fac*toplot+shift,
+                        color=g_c_o, ls=g_ls_o, lw=g_lw)
+
+        # ----------------------------------------------------------- #
+        #                           Totaler                           #
+        # ----------------------------------------------------------- #
+
+    def show_model_tot(self, ax=None, z=None, f=None,
+                       color="C2", label='auto',
+                       legend=True, leg_kwargs={},
+                       show_hist=False, histtype='step', c_hist='0.5',
+                       means=True, model=True, gauss=True,
+                       fontsize='x-large', **kwargs):
+        """ """
+        if ax is None:
+            fig = plt.figure(figsize=[6, 4])
+            ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+
+        else:
+            fig = ax.figure
+
+        xlin = np.linspace(self.floor, self.ceil, 3000)
+
+        if label is None:
+            ax.plot(xlin,
+                    self.plot_a(xlin, z, f),
+                    color=color,
+                    **kwargs)
+        elif 'auto' in label:
+            ax.plot(xlin,
+                    self.plot_a(xlin, z, f),
+                    color=color,
+                    label=self.__doc__,
+                    **kwargs)
+        else:
+            ax.plot(xlin,
+                    self.plot_a(xlin, z, f),
+                    color=color,
+                    label=label,
+                    **kwargs)
+        if show_hist:
+            ax.hist(self.pd.stretchs, density=True, histtype=histtype,
+                    color=c_hist, alpha=1, zorder=8)
+        if model:
+            if (self.FIXED) and not (bool(self.GLOBALPARAMETERS)):
+                if means:
+                    self.show_means(ax=ax, z=z, f=f, tot=True)
+                else:
+                    pass
+            if bool(self.GLOBALPARAMETERS):
+                z = None
+                f = self.param['f']
+                self.show_model(ax=ax, y_factor=f, o_factor=1-f,
+                                legend=legend)
+            elif not self.FIXED:
+                if (z is None) and (f is not None):
+                    self.show_model(ax=ax, y_factor=f, o_factor=1-f,
+                                    legend=legend)
+                elif (z is not None) and (f is None):
+                    self.show_model(ax=ax,
+                                    y_factor=self.delta(z),
+                                    o_factor=1-self.delta(z),
+                                    legend=legend)
+                elif (z is None) and (f is None):
+                    raise NameError('Either `z` or `f` must be given')
+                elif (z is not None) and (f is not None):
+                    raise NameError("`z` and `f` can't both be given")
+            if means:
+                self.show_means(ax=ax, z=z, f=f)
+            if gauss:
+                self.show_gauss(ax=ax, z=z, f=f)
+        else:
+            if means:
+                self.show_means(ax=ax, z=z, f=f, tot=True)
+
+        ax.set_xlabel('$x_1$', fontsize=fontsize)
+        ax.set_ylabel('Probabilité', fontsize=fontsize)
+
+        if legend:
+            ax.legend(**leg_kwargs)
+
+        ax.set_ylim(bottom=0)
+
+        return ax
+
+        # ----------------------------------------------------------- #
+        #                           Modevol                           #
+        # ----------------------------------------------------------- #
+
+    def show_model_evol(self, ax=None, zlin=None, flin=None,
+                        TD=False, means=True,
+                        elev=20, azim=260,
+                        cmap='bwr', label='auto',
+                        legend=False, leg_kwargs={},
+                        fontsize='x-large', **kwargs):
+        """ """
+        if self.FIXED:
+            raise TypeError("Model is fixed!")
+        dgmap = plt.cm.get_cmap(cmap)
+        xlin = np.linspace(self.floor, self.ceil, 1000)
+        if not TD:
+            if ax is None:
+                fig = plt.figure(figsize=[6, 4])
+                ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
+            else:
+                fig = ax.figure
+
+            if (zlin is None) and (flin is not None):
+                f_m, f_p = np.percentile(flin, [0, 100])
+                for f in flin:
+                    self.show_model_tot(ax=ax, model=False, show_hist=False,
+                                        f=f, color=dgmap((f-f_m)/(f_p-f_m)),
+                                        legend=False)
+                if means:
+                    self.show_means(ax=ax, f=f, tot=True)
+                ymax = np.max([self.plot_a(xlin, f=f) for f in flin])
+            elif (zlin is not None) and (flin is None):
+                z_m, z_p = np.percentile(zlin, [0, 100])
+                for z in zlin:
+                    self.show_model_tot(ax=ax, model=False, show_hist=False,
+                                        z=z, color=dgmap((z-z_m)/(z_p-z_m)),
+                                        legend=False)
+                    self.show_means(ax=ax, z=z, tot=True)
+                ymax = np.max([self.plot_a(xlin, z=z) for z in zlin])
+            elif (zlin is None) and (flin is None):
+                zlin = np.linspace(self.pd.redshifts.min(),
+                                   self.pd.redshifts.max(), 50)
+                z_m, z_p = np.percentile(zlin, [0, 100])
+                for z in zlin:
+                    self.show_model_tot(ax=ax, model=False, show_hist=False,
+                                        z=z, color=dgmap((z-z_m)/(z_p-z_m)),
+                                        legend=False)
+                    self.show_means(ax=ax, z=z, tot=True)
+                ymax = np.max([self.plot_a(xlin, z=z) for z in zlin])
+            elif (zlin is not None) and (flin is not None):
+                raise NameError("`z` and `f` can't both be given")
+
+            ax.set_xlabel('$x_1$', fontsize=fontsize)
+            ax.set_ylabel('Probabilité', fontsize=fontsize)
+
+            ax.set_ylim(0, 1.05*ymax)
+
+            if legend:
+                ax.legend(**leg_kwargs)
+
+            return ax
+        else:
+            if ax is None:
+                fig = plt.figure(figsize=[12, 8])
+                ax = fig.add_axes([0.1, 0.12, 0.8, 0.8], projection='3d')
+            else:
+                fig = ax.figure
+
+            if (zlin is None) and (flin is not None):
+                ylin = flin
+                X, Y = np.meshgrid(xlin, ylin)
+                zs = np.array(self.plot_a(np.ravel(X), f=np.ravel(Y)))
+                ax.set_ylabel('$f$', fontsize='x-large')
+            elif (zlin is not None) and (flin is None):
+                ylin = zlin
+                X, Y = np.meshgrid(xlin, ylin)
+                zs = np.array(self.plot_a(np.ravel(X), z=np.ravel(Y)))
+                ax.set_ylabel('$z$', fontsize='x-large')
+            elif (zlin is None) and (flin is None):
+                ylin = np.linspace(self.pd.redshifts.min(),
+                                   self.pd.redshifts.max(), 50)
+                X, Y = np.meshgrid(xlin, ylin)
+                zs = np.array(self.plot_a(np.ravel(X), z=np.ravel(Y)))
+                ax.set_ylabel('$z$', fontsize='x-large')
+            elif (zlin is not None) and (flin is not None):
+                raise NameError("`z` and `f` can't both be given")
+            Z = zs.reshape(X.shape)
+
+            ax.plot_surface(X, Y, Z,
+                            cmap=dgmap,
+                            facecolors=dgmap((Y-Y.min())/(Y.max()-Y.min()), 1),
+                            lw=0, antialiased=True)
+
+            ax.grid(False)
+            ax.set_xlim(self.floor, self.ceil)
+            # ax.set_ylim(df_nc.redshifts.min(), df_nc.redshifts.max())
+
+            ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+            ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+            ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+
+            ax.view_init(elev=elev, azim=azim)
+
+            ax.set_xlabel('$x_1$')
+            ax.zaxis.set_rotate_label(False)  # disable automatic rotation
+            ax.set_zlabel('Probabilité', fontsize='x-large', rotation=90)
+
 
 # =========================================================================== #
 #                                 EvolHowellF                                 #
@@ -366,7 +862,7 @@ class Evol2G2M2SF(Evol2G2M2S):
     FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
                                          YOUNGPARAMETERS),
                                OLDPARAMETERS)
-    GUESSVAL = [snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESSVAL = [0.5, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
@@ -531,101 +1027,6 @@ class Evol1G1M2S(Evol2G2M2S):
         ax.set_xlabel(r'$\mathrm{x}_1$', fontsize='x-large')
 
 # =========================================================================== #
-#                                   EvolNR1S                                  #
-# =========================================================================== #
-
-
-class Evol3G2M1S(Evol2G2M2S):
-    '''Base$-(\sigma_2)$'''
-
-    # =================================================================== #
-    #                              Parameters                             #
-    # =================================================================== #
-
-    GLOBALPARAMETERS = []
-    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2']
-    FREEPARAMETERS = OLDPARAMETERS
-    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
-    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
-    FIXED = False
-
-    # =================================================================== #
-    #                               Methods                               #
-    # =================================================================== #
-
-    # ------------------------------------------------------------------- #
-    #                               FITTER                                #
-    # ------------------------------------------------------------------- #
-
-    def likelihood_o(self, x, dx, a, mu_1, sigma_1, mu_2):
-        '''La fonction décrivant le modèle des SNe vieilles'''
-        return a*self.gauss(x, dx, mu_1, sigma_1) + \
-            (1-a)*self.gauss(x, dx, mu_2, sigma_1)
-
-    def likelihood_tot(self, info, x, dx, a, mu_1, sigma_1, mu_2):
-        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-info)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
-
-    # ------------------------------------------------------------------- #
-    #                              PROBALIZER                             #
-    # ------------------------------------------------------------------- #
-
-    def loglikelihood(self, a, mu_1, sigma_1, mu_2):
-        '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.info,
-                                                    self.stretchs,
-                                                    self.stretchs_err,
-                                                    a, mu_1, sigma_1,
-                                                    mu_2)))
-
-# =========================================================================== #
-#                                   EvolNR1S                                  #
-# =========================================================================== #
-
-
-class Evol3G2M1SF(Evol3G2M1S):
-    '''Base$-(\sigma_2):f$'''
-
-    # =================================================================== #
-    #                              Parameters                             #
-    # =================================================================== #
-
-    GLOBALPARAMETERS = ['f']
-    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2']
-    FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
-    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
-    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
-    FIXED = True
-
-    # =================================================================== #
-    #                               Methods                               #
-    # =================================================================== #
-
-    # ------------------------------------------------------------------- #
-    #                               FITTER                                #
-    # ------------------------------------------------------------------- #
-
-    def likelihood_tot(self, x, dx, f, a, mu_1, sigma_1, mu_2):
-        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-f)*self.likelihood_o(x, dx, a, mu_1, sigma_1, mu_2)
-
-    # ------------------------------------------------------------------- #
-    #                              PROBALIZER                             #
-    # ------------------------------------------------------------------- #
-
-    def loglikelihood(self, f, a, mu_1, sigma_1, mu_2):
-        '''La fonction à minimiser'''
-        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
-                                                    self.stretchs_err,
-                                                    f, a,
-                                                    mu_1, sigma_1,
-                                                    mu_2)))
-
-# =========================================================================== #
 #                                   EvolNR2S                                  #
 # =========================================================================== #
 
@@ -695,9 +1096,9 @@ class Evol3G2M2SF(Evol3G2M2S):
 
     GLOBALPARAMETERS = ['f']
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['a', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
     FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
-    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESSVAL = [0.5, snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
@@ -709,10 +1110,10 @@ class Evol3G2M2SF(Evol3G2M2S):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-    def likelihood_tot(self, x, dx, f, a, mu_1, sigma_1, mu_2, sigma_2):
+    def likelihood_tot(self, x, dx, f, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-f)*self.likelihood_o(x, dx, a,
+            (1-f)*self.likelihood_o(x, dx, aa,
                                     mu_1, sigma_1,
                                     mu_2, sigma_2)
 
@@ -720,21 +1121,21 @@ class Evol3G2M2SF(Evol3G2M2S):
     #                              PROBALIZER                             #
     # ------------------------------------------------------------------- #
 
-    def loglikelihood(self, f, a, mu_1, sigma_1, mu_2, sigma_2):
+    def loglikelihood(self, f, aa, mu_1, sigma_1, mu_2, sigma_2):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
                                                     self.stretchs_err,
-                                                    f, a,
+                                                    f, aa,
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2)))
 
 # =========================================================================== #
-#                                  EvolNRTOT                                  #
+#                                   EvolNR1S                                  #
 # =========================================================================== #
 
 
-class Evol3G3M3S(Evol3G2M2S):
-    r'''Base$+(\mu_1^{\mathrm{O}}, \sigma_1^{\mathrm{O}})$'''
+class Evol3G2M1S(Evol3G2M2S):
+    '''Base$-(\sigma_2)$'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -742,12 +1143,9 @@ class Evol3G3M3S(Evol3G2M2S):
 
     GLOBALPARAMETERS = []
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['a', 'mu_2', 'sigma_2', 'mu_3', 'sigma_3']
-    FREEPARAMETERS = ['a',
-                      'mu_1', 'sigma_1',
-                      'mu_2', 'sigma_2',
-                      'mu_3', 'sigma_3']
-    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2']
+    FREEPARAMETERS = OLDPARAMETERS
+    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = False
 
@@ -759,42 +1157,35 @@ class Evol3G3M3S(Evol3G2M2S):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-    def likelihood_o(self, x, dx, a, mu_2, sigma_2, mu_3, sigma_3):
+    def likelihood_o(self, x, dx, aa, mu_1, sigma_1, mu_2):
         '''La fonction décrivant le modèle des SNe vieilles'''
-        return a*self.gauss(x, dx, mu_2, sigma_2) + \
-            (1-a)*self.gauss(x, dx, mu_3, sigma_3)
+        return self.get_a(aa)*self.gauss(x, dx, mu_1, sigma_1) + \
+            (1-self.get_a(aa))*self.gauss(x, dx, mu_2, sigma_1)
 
-    def likelihood_tot(self, info, x, dx, a,
-                       mu_1, sigma_1,
-                       mu_2, sigma_2,
-                       mu_3, sigma_3):
+    def likelihood_tot(self, info, x, dx, aa, mu_1, sigma_1, mu_2):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-info)*self.likelihood_o(x, dx, a,
-                                       mu_2, sigma_2,
-                                       mu_3, sigma_3)
+            (1-info)*self.likelihood_o(x, dx, aa, mu_1, sigma_1, mu_2)
 
     # ------------------------------------------------------------------- #
     #                              PROBALIZER                             #
     # ------------------------------------------------------------------- #
 
-    def loglikelihood(self, a, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
+    def loglikelihood(self, aa, mu_1, sigma_1, mu_2):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.info,
                                                     self.stretchs,
                                                     self.stretchs_err,
-                                                    a,
-                                                    mu_1, sigma_1,
-                                                    mu_2, sigma_2,
-                                                    mu_3, sigma_3)))
+                                                    aa, mu_1, sigma_1,
+                                                    mu_2)))
 
 # =========================================================================== #
-#                                  EvolNRTOTF                                 #
+#                                   EvolNR1S                                  #
 # =========================================================================== #
 
 
-class Evol3G3M3SF(Evol3G3M3S):
-    r'''Base$+(\mu_1^{\mathrm{O}}, \sigma_1^{\mathrm{O}}):f$'''
+class Evol3G2M1SF(Evol3G2M1S):
+    '''Base$-(\sigma_2)$+const'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -802,12 +1193,9 @@ class Evol3G3M3SF(Evol3G3M3S):
 
     GLOBALPARAMETERS = ['f']
     YOUNGPARAMETERS = ['mu_1', 'sigma_1']
-    OLDPARAMETERS = ['a', 'mu_2', 'sigma_2', 'mu_3', 'sigma_3']
-    FREEPARAMETERS = ['f', 'a',
-                      'mu_1', 'sigma_1',
-                      'mu_2', 'sigma_2',
-                      'mu_3', 'sigma_3']
-    GUESSVAL = [snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2']
+    FREEPARAMETERS = np.append(GLOBALPARAMETERS, OLDPARAMETERS)
+    GUESSVAL = [0.5, snf_a, snf_mu_1, snf_sigma_1, snf_mu_2]
     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
     FIXED = True
 
@@ -819,13 +1207,238 @@ class Evol3G3M3SF(Evol3G3M3S):
     #                               FITTER                                #
     # ------------------------------------------------------------------- #
 
-    def likelihood_tot(self, x, dx, f, a,
+    def likelihood_tot(self, x, dx, f, aa, mu_1, sigma_1, mu_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-f)*self.likelihood_o(x, dx, aa, mu_1, sigma_1, mu_2)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
+
+    def loglikelihood(self, f, aa, mu_1, sigma_1, mu_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    f, aa,
+                                                    mu_1, sigma_1,
+                                                    mu_2)))
+
+
+# =========================================================================== #
+#                                   EvolNR2S                                  #
+# =========================================================================== #
+
+
+class Evol4G2M2S(Evol3G2M2S):
+    r'''Base$+(\mu_2^{\rm Y}, \sigma_2^{\rm Y})$'''
+
+    # =================================================================== #
+    #                              Parameters                             #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['bb', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    FREEPARAMETERS = np.append('bb', OLDPARAMETERS)
+    GUESSVAL = [snf_a, snf_a, snf_mu_1, snf_sigma_1, snf_mu_2, snf_sigma_2]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
+    FIXED = False
+
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
+
+    # ------------------------------------------------------------------- #
+    #                               FITTER                                #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_y(self, x, dx, bb, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return self.get_a(bb)*self.gauss(x, dx, mu_1, sigma_1) + \
+            (1-self.get_a(bb))*self.gauss(x, dx, mu_2, sigma_2)
+
+    def likelihood_tot(self, info, x, dx,
+                       aa, bb, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return info*self.likelihood_y(x, dx, bb, mu_1, sigma_1,
+                                      mu_2, sigma_2) + \
+            (1-info)*self.likelihood_o(x, dx, aa, mu_1, sigma_1,
+                                       mu_2, sigma_2)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
+
+    def loglikelihood(self, aa, bb, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
+                                                    aa, bb,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2)))
+
+
+# =========================================================================== #
+#                                   EvolNR2S                                  #
+# =========================================================================== #
+
+
+class Evol4G2M2SF(Evol4G2M2S):
+    r'''Base$+(\mu_2^{\rm Y}, \sigma_2^{\rm Y})$+const'''
+
+    # =================================================================== #
+    #                              Parameters                             #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = ['f']
+    YOUNGPARAMETERS = ['bb', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    OLDPARAMETERS = ['aa', 'mu_1', 'sigma_1', 'mu_2', 'sigma_2']
+    FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
+                                         'bb'),
+                               OLDPARAMETERS)
+    GUESSVAL = [0.5, snf_a, snf_a,
+                snf_mu_1, snf_sigma_1,
+                snf_mu_2, snf_sigma_2]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
+    FIXED = True
+
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
+
+    # ------------------------------------------------------------------- #
+    #                               FITTER                                #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_tot(self, x, dx,
+                       f, aa, bb,
+                       mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return f*self.likelihood_y(x, dx, bb, mu_1, sigma_1,
+                                   mu_2, sigma_2) + \
+            (1-f)*self.likelihood_o(x, dx, aa, mu_1, sigma_1,
+                                    mu_2, sigma_2)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
+
+    def loglikelihood(self, f, aa, bb, mu_1, sigma_1, mu_2, sigma_2):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    f,
+                                                    aa, bb,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2)))
+
+
+# =========================================================================== #
+#                                  EvolNRTOT                                  #
+# =========================================================================== #
+
+
+class Evol3G3M3S(Evol3G2M2S):
+    r'''Base$+(\mu_1^{\rm O}, \sigma_1^{\rm O})$'''
+
+    # =================================================================== #
+    #                              Parameters                             #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['aa', 'mu_2', 'sigma_2', 'mu_3', 'sigma_3']
+    FREEPARAMETERS = ['aa',
+                      'mu_1', 'sigma_1',
+                      'mu_2', 'sigma_2',
+                      'mu_3', 'sigma_3']
+    GUESSVAL = [snf_a,
+                snf_mu_1, snf_sigma_1,
+                snf_mu_2, snf_sigma_2,
+                snf_mu_2, snf_sigma_2]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
+    FIXED = False
+
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
+
+    # ------------------------------------------------------------------- #
+    #                               FITTER                                #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_o(self, x, dx, aa, mu_2, sigma_2, mu_3, sigma_3):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return self.get_a(aa)*self.gauss(x, dx, mu_2, sigma_2) + \
+            (1-self.get_a(aa))*self.gauss(x, dx, mu_3, sigma_3)
+
+    def likelihood_tot(self, info, x, dx, aa,
+                       mu_1, sigma_1,
+                       mu_2, sigma_2,
+                       mu_3, sigma_3):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return info*self.likelihood_y(x, dx, mu_1, sigma_1) + \
+            (1-info)*self.likelihood_o(x, dx, aa,
+                                       mu_2, sigma_2,
+                                       mu_3, sigma_3)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
+
+    def loglikelihood(self, aa, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
+                                                    aa,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2,
+                                                    mu_3, sigma_3)))
+
+# =========================================================================== #
+#                                  EvolNRTOTF                                 #
+# =========================================================================== #
+
+
+class Evol3G3M3SF(Evol3G3M3S):
+    r'''Base$+(\mu_1^{\mathrm{O}}, \sigma_1^{\mathrm{O}})+const$'''
+
+    # =================================================================== #
+    #                              Parameters                             #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = ['f']
+    YOUNGPARAMETERS = ['mu_1', 'sigma_1']
+    OLDPARAMETERS = ['aa', 'mu_2', 'sigma_2', 'mu_3', 'sigma_3']
+    FREEPARAMETERS = ['f', 'aa',
+                      'mu_1', 'sigma_1',
+                      'mu_2', 'sigma_2',
+                      'mu_3', 'sigma_3']
+    GUESSVAL = [0.5, snf_a,
+                snf_mu_1, snf_sigma_1,
+                snf_mu_2, snf_sigma_2,
+                snf_mu_2, snf_sigma_2]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
+    FIXED = True
+
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
+
+    # ------------------------------------------------------------------- #
+    #                               FITTER                                #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_tot(self, x, dx, f, aa,
                        mu_1, sigma_1,
                        mu_2, sigma_2,
                        mu_3, sigma_3):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
         return f*self.likelihood_y(x, dx, mu_1, sigma_1) + \
-            (1-f)*self.likelihood_o(x, dx, a,
+            (1-f)*self.likelihood_o(x, dx, aa,
                                     mu_2, sigma_2,
                                     mu_3, sigma_3)
 
@@ -833,14 +1446,155 @@ class Evol3G3M3SF(Evol3G3M3S):
     #                              PROBALIZER                             #
     # ------------------------------------------------------------------- #
 
-    def loglikelihood(self, f, a, mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
+    def loglikelihood(self, f, aa,
+                      mu_1, sigma_1, mu_2, sigma_2, mu_3, sigma_3):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
                                                     self.stretchs_err,
-                                                    f, a,
+                                                    f, aa,
                                                     mu_1, sigma_1,
                                                     mu_2, sigma_2,
                                                     mu_3, sigma_3)))
+
+
+# =========================================================================== #
+#                                  EvolNRTOT                                  #
+# =========================================================================== #
+
+class Evol4G4M4S(Evol3G3M3S):
+    r'''Base$+(\mu_1^{\rm O},\sigma_1^{\rm O})+(\mu_2^{\rm Y},\sigma_2^{\rm Y})$'''
+
+    # =================================================================== #
+    #                              Parameters                             #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = []
+    YOUNGPARAMETERS = ['bb', 'mu_1', 'sigma_1', 'mu_4', 'sigma_4']
+    OLDPARAMETERS = ['aa', 'mu_2', 'sigma_2', 'mu_3', 'sigma_3']
+    FREEPARAMETERS = ['aa', 'bb',
+                      'mu_1', 'sigma_1',
+                      'mu_4', 'sigma_4',
+                      'mu_2', 'sigma_2',
+                      'mu_3', 'sigma_3']
+    GUESSVAL = [snf_a, snf_a,
+                snf_mu_1, snf_sigma_1,
+                snf_mu_2, snf_sigma_2,
+                snf_mu_1, snf_sigma_1,
+                snf_mu_2, snf_sigma_2]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
+    FIXED = False
+
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
+
+    # ------------------------------------------------------------------- #
+    #                               FITTER                                #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_y(self, x, dx, bb, mu_1, sigma_1, mu_4, sigma_4):
+        '''La fonction décrivant le modèle des SNe vieilles'''
+        return self.get_a(bb)*self.gauss(x, dx, mu_1, sigma_1) + \
+            (1-self.get_a(bb))*self.gauss(x, dx, mu_4, sigma_4)
+
+    def likelihood_tot(self, info,
+                       x, dx, aa, bb,
+                       mu_1, sigma_1,
+                       mu_2, sigma_2,
+                       mu_3, sigma_3,
+                       mu_4, sigma_4):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return info*self.likelihood_y(x, dx, aa,
+                                      mu_1, sigma_1,
+                                      mu_4, sigma_4) + \
+            (1-info)*self.likelihood_o(x, dx, aa,
+                                       mu_2, sigma_2,
+                                       mu_3, sigma_3)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
+
+    def loglikelihood(self, aa, bb,
+                      mu_1, sigma_1, mu_4, sigma_4,
+                      mu_2, sigma_2, mu_3, sigma_3):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.info,
+                                                    self.stretchs,
+                                                    self.stretchs_err,
+                                                    aa, bb,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2,
+                                                    mu_3, sigma_3,
+                                                    mu_4, sigma_4)))
+
+# =========================================================================== #
+#                                  EvolNRTOTF                                 #
+# =========================================================================== #
+
+
+class Evol4G4M4SF(Evol4G4M4S):
+    r'''Base$+(\mu_1^{\rm O},\sigma_1^{\rm O})+(\mu_2^{\rm Y},\sigma_2^{\rm Y})$+const'''
+
+    # =================================================================== #
+    #                              Parameters                             #
+    # =================================================================== #
+
+    GLOBALPARAMETERS = ['f']
+    YOUNGPARAMETERS = ['bb', 'mu_1', 'sigma_1', 'mu_4', 'sigma_4']
+    OLDPARAMETERS = ['aa', 'mu_2', 'sigma_2', 'mu_3', 'sigma_3']
+    FREEPARAMETERS = ['f', 'aa', 'bb',
+                      'mu_1', 'sigma_1',
+                      'mu_4', 'sigma_4',
+                      'mu_2', 'sigma_2',
+                      'mu_3', 'sigma_3']
+    GUESSVAL = [0.5, snf_a, snf_a,
+                snf_mu_1, snf_sigma_1,
+                snf_mu_2, snf_sigma_2,
+                snf_mu_1, snf_sigma_1,
+                snf_mu_2, snf_sigma_2]
+    GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
+    FIXED = True
+
+    # =================================================================== #
+    #                               Methods                               #
+    # =================================================================== #
+
+    # ------------------------------------------------------------------- #
+    #                               FITTER                                #
+    # ------------------------------------------------------------------- #
+
+    def likelihood_tot(self, x, dx,
+                       f, aa, bb,
+                       mu_1, sigma_1,
+                       mu_2, sigma_2,
+                       mu_3, sigma_3,
+                       mu_4, sigma_4):
+        '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
+        return f*self.likelihood_y(x, dx, aa,
+                                   mu_1, sigma_1,
+                                   mu_4, sigma_4) + \
+            (1-f)*self.likelihood_o(x, dx, aa,
+                                    mu_2, sigma_2,
+                                    mu_3, sigma_3)
+
+    # ------------------------------------------------------------------- #
+    #                              PROBALIZER                             #
+    # ------------------------------------------------------------------- #
+
+    def loglikelihood(self, f, aa, bb,
+                      mu_1, sigma_1, mu_4, sigma_4,
+                      mu_2, sigma_2, mu_3, sigma_3):
+        '''La fonction à minimiser'''
+        return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
+                                                    self.stretchs_err,
+                                                    f,
+                                                    aa, bb,
+                                                    mu_1, sigma_1,
+                                                    mu_2, sigma_2,
+                                                    mu_3, sigma_3,
+                                                    mu_4, sigma_4)))
+
 
 # =========================================================================== #
 #                                                                             #

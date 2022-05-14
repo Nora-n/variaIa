@@ -32,7 +32,7 @@ nsurveys = ['nSNF', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
 
 su = ipw.Dropdown(options=surveys + ['All'] + nsurveys,
                   description='Survey:',
-                  value='SNF')
+                  value='All')
 
 cons = ipw.Checkbox(value=False,
                     description='Conservative')

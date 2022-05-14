@@ -233,25 +233,35 @@ class Evol3G3M4S():
         #                           Generic                           #
         # ----------------------------------------------------------- #
 
-    def plot_a(self, z, x_lin):
+    def plot_a(self, M_lin, z=None, f=None):
         if self.FIXED:
-            return(self.likelihood_tot(x_lin,
-                                       np.zeros(len(x_lin)),
+            return(self.likelihood_tot(M_lin,
+                                       np.zeros(len(M_lin)),
                                        **self.pltall))
         else:
-            return self.likelihood_tot(self.delta(z),
-                                       x_lin,
-                                       np.zeros(len(x_lin)),
-                                       **self.pltall)
+            if (z is None) and (f is not None):
+                return self.likelihood_tot(f,
+                                           M_lin,
+                                           np.zeros(len(M_lin)),
+                                           **self.pltall)
+            elif (z is not None) and (f is None):
+                return self.likelihood_tot(self.delta(z),
+                                           M_lin,
+                                           np.zeros(len(M_lin)),
+                                           **self.pltall)
+            elif (z is None) and (f is None):
+                raise NameError('Either `z` or `f` must be given')
+            elif (z is not None) and (f is not None):
+                raise NameError("`z` and `f` can't both be given")
 
-    def plot_y(self, x_lin):
-        return self.likelihood_y(x_lin,
-                                 np.zeros(len(x_lin)),
+    def plot_y(self, M_lin):
+        return self.likelihood_y(M_lin,
+                                 np.zeros(len(M_lin)),
                                  **self.pltyoung)
 
-    def plot_o(self, x_lin):
-        return self.likelihood_o(x_lin,
-                                 np.zeros(len(x_lin)),
+    def plot_o(self, M_lin):
+        return self.likelihood_o(M_lin,
+                                 np.zeros(len(M_lin)),
                                  **self.pltold)
 
         # ----------------------------------------------------------- #
@@ -329,18 +339,18 @@ class Evol3G3M4S():
             fig = plt.figure(figsize=[7, 3.5])
             ax = fig.add_axes([0.1, 0.12, 0.8, 0.8])
 
-        x_lin = np.linspace(self.floor, self.ceil, 3000)
+        M_lin = np.linspace(self.floor, self.ceil, 3000)
 
-        ax.fill_betweenx(x_lin,
-                         y_factor*self.plot_y(x_lin)
+        ax.fill_betweenx(M_lin,
+                         y_factor*self.plot_y(M_lin)
                          + shift,
                          shift,
                          facecolor=fcy,
                          edgecolor=ecy,
                          label='model young', **kwargs)
 
-        ax.fill_betweenx(x_lin,
-                         o_factor*self.plot_o(x_lin)
+        ax.fill_betweenx(M_lin,
+                         o_factor*self.plot_o(M_lin)
                          + shift,
                          shift,
                          facecolor=fco,
@@ -406,10 +416,10 @@ class Evol3G3M4S():
         else:
             fig = ax.figure
 
-        x_lin = np.linspace(self.floor, self.ceil, 3000)
+        M_lin = np.linspace(self.floor, self.ceil, 3000)
 
-        ax.plot(x_lin,
-                self.plot_a(z, x_lin),
+        ax.plot(M_lin,
+                self.plot_a(z, M_lin),
                 color="C2",
                 label='model', **kwargs)
 
@@ -418,7 +428,7 @@ class Evol3G3M4S():
                 color="0.6", alpha=0.7, zorder=8)
         if mean:
             ax.vline(self.param['mu'],
-                     ymin=0, ymax=np.max(self.plot_a(z, x_lin)),
+                     ymin=0, ymax=np.max(self.plot_a(z, M_lin)),
                      color="C2")
 
         ax.set_xlabel(r'$\mathrm{M}_\mathrm{host}$', fontsize=fontsize)
@@ -681,6 +691,29 @@ class Evol2G2M2S(Evol2G2M3S):
                                                     mu_2, sigma_2)))
 
 # =========================================================================== #
+#                                 Beta + Beta                                 #
+# =========================================================================== #
+
+
+# class Evol2B(Evol2G2M2S):
+#     '''2B'''
+#
+#     # =================================================================== #
+#     #                              Parameters                             #
+#     # =================================================================== #
+#
+#     GLOBALPARAMETERS = []
+#     YOUNGPARAMETERS = [a_y, b_y, mu_y, sigma_y]
+#     OLDPARAMETERS = [a_o, b_o, mu_o, sigma_o]
+#     FREEPARAMETERS = np.append(np.append(GLOBALPARAMETERS,
+#                                          YOUNGPARAMETERS),
+#                                OLDPARAMETERS)
+#     GUESSVAL = [10, 1]
+#     LIMVAL = [None, None]
+#     GUESS = {k: v for k, v in zip(FREEPARAMETERS, GUESSVAL)}
+#     FIXED = True
+
+# =========================================================================== #
 #                                    Gauss                                    #
 # =========================================================================== #
 
@@ -772,25 +805,25 @@ class Evol1G1M2S(Evol1G1M1S):
         else:
             fig = ax.figure
 
-        x_linspace = np.linspace(self.floor, self.ceil, 3000)
+        M_linspace = np.linspace(self.floor, self.ceil, 3000)
 
-        flag_up = x_linspace >= self.param['mu']
+        flag_up = M_linspace >= self.param['mu']
 
         if model is True:
-            ax.fill_between(x_linspace[flag_up],
+            ax.fill_between(M_linspace[flag_up],
                             (self.param['sigmaup']) * np.sqrt(np.pi/2) *
-                            self.gauss(x_linspace[flag_up],
-                                       np.zeros(len(x_linspace[flag_up])),
+                            self.gauss(M_linspace[flag_up],
+                                       np.zeros(len(M_linspace[flag_up])),
                                        self.param['mu'],
                                        self.param['sigmaup']),
                             facecolor=plt.cm.viridis(0.05, 0.1),
                             edgecolor=plt.cm.viridis(0.05, 0.8),
                             lw=2)
 
-            ax.fill_between(x_linspace[~flag_up],
+            ax.fill_between(M_linspace[~flag_up],
                             (self.param['sigmadown']) * np.sqrt(np.pi/2) *
-                            self.gauss(x_linspace[~flag_up],
-                                       np.zeros(len(x_linspace[~flag_up])),
+                            self.gauss(M_linspace[~flag_up],
+                                       np.zeros(len(M_linspace[~flag_up])),
                                        self.param['mu'],
                                        self.param['sigmadown']),
                             facecolor=plt.cm.viridis(0.05, 0.1),
