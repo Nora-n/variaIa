@@ -63,7 +63,7 @@ class generic():
 
 
 class Evol2G2M2S():
-    '''Howell+drift'''
+    '''Howell+dérive'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -309,7 +309,7 @@ class Evol2G2M2S():
             return self.pltma['mu']
         pnums = [p.split('_')[-1] for p in self.OLDPARAMETERS]
         pnums = np.unique([p for p in pnums if len(p) == 1])
-        if len(pnums):
+        if len(pnums) == 2:
             aa = [self.param[k] for k in self.OLDPARAMETERS if '_' not in k]
             a = self.get_a(aa[0])
             mode2 = a*self.param['mu_'+pnums[0]] +\
@@ -482,11 +482,12 @@ class Evol2G2M2S():
         # ----------------------------------------------------------- #
 
     def show_model(self, ax=None, shift=0, rotate=False,
+                   ls_y='-', ls_o='-',
                    facecolor_y=plt.cm.viridis(0.05, 0.1),
                    facecolor_o=plt.cm.viridis(0.98, 0.1),
                    edgecolor_y=plt.cm.viridis(0.05),
                    edgecolor_o=plt.cm.viridis(0.98),
-                   o_label='modèle vieux', y_label='modèle jeune',
+                   o_label='Modèle vieux', y_label='Modèle jeune',
                    o_factor=-1, y_factor=1,
                    means=False, gauss=False,
                    legend=True, leg_kwargs={},
@@ -504,6 +505,7 @@ class Evol2G2M2S():
                              y_factor*self.plot_y(xlin)
                              + shift,
                              shift,
+                             ls=ls_y,
                              facecolor=facecolor_y,
                              edgecolor=edgecolor_y,
                              label=y_label, **kwargs)
@@ -511,6 +513,7 @@ class Evol2G2M2S():
                              o_factor*self.plot_o(xlin)
                              + shift,
                              shift,
+                             ls=ls_o,
                              facecolor=facecolor_o,
                              edgecolor=edgecolor_o,
                              label=o_label, **kwargs)
@@ -528,6 +531,7 @@ class Evol2G2M2S():
                             y_factor*self.plot_y(xlin)
                             + shift,
                             shift,
+                            ls=ls_y,
                             facecolor=facecolor_y,
                             edgecolor=edgecolor_y,
                             label=y_label, **kwargs)
@@ -535,6 +539,7 @@ class Evol2G2M2S():
                             o_factor*self.plot_o(xlin)
                             + shift,
                             shift,
+                            ls=ls_o,
                             facecolor=facecolor_o,
                             edgecolor=edgecolor_o,
                             label=o_label, **kwargs)
@@ -897,7 +902,7 @@ class Evol2G2M2SF(Evol2G2M2S):
 
 
 class Evol1G1M1S(Evol2G2M2S):
-    '''Gaussian'''
+    '''Gaussienne'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -935,7 +940,7 @@ class Evol1G1M1S(Evol2G2M2S):
 
 
 class Evol1G1M2S(Evol2G2M2S):
-    '''Asymmetric'''
+    '''Asymétrique'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -1404,7 +1409,7 @@ class Evol3G3M3S(Evol3G2M2S):
 
 
 class Evol3G3M3SF(Evol3G3M3S):
-    r'''Base$+(\mu_1^{\mathrm{O}}, \sigma_1^{\mathrm{O}})+const$'''
+    r'''Base$+(\mu_1^{\mathrm{O}}, \sigma_1^{\mathrm{O}})$+const'''
 
     # =================================================================== #
     #                              Parameters                             #
@@ -1500,11 +1505,11 @@ class Evol4G4M4S(Evol3G3M3S):
     def likelihood_tot(self, info,
                        x, dx, aa, bb,
                        mu_1, sigma_1,
+                       mu_4, sigma_4,
                        mu_2, sigma_2,
-                       mu_3, sigma_3,
-                       mu_4, sigma_4):
+                       mu_3, sigma_3):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return info*self.likelihood_y(x, dx, aa,
+        return info*self.likelihood_y(x, dx, bb,
                                       mu_1, sigma_1,
                                       mu_4, sigma_4) + \
             (1-info)*self.likelihood_o(x, dx, aa,
@@ -1524,9 +1529,9 @@ class Evol4G4M4S(Evol3G3M3S):
                                                     self.stretchs_err,
                                                     aa, bb,
                                                     mu_1, sigma_1,
+                                                    mu_4, sigma_4,
                                                     mu_2, sigma_2,
-                                                    mu_3, sigma_3,
-                                                    mu_4, sigma_4)))
+                                                    mu_3, sigma_3)))
 
 # =========================================================================== #
 #                                  EvolNRTOTF                                 #
@@ -1567,11 +1572,11 @@ class Evol4G4M4SF(Evol4G4M4S):
     def likelihood_tot(self, x, dx,
                        f, aa, bb,
                        mu_1, sigma_1,
+                       mu_4, sigma_4,
                        mu_2, sigma_2,
-                       mu_3, sigma_3,
-                       mu_4, sigma_4):
+                       mu_3, sigma_3):
         '''La fonction prenant en compte la probabilité d'être vieille/jeune'''
-        return f*self.likelihood_y(x, dx, aa,
+        return f*self.likelihood_y(x, dx, bb,
                                    mu_1, sigma_1,
                                    mu_4, sigma_4) + \
             (1-f)*self.likelihood_o(x, dx, aa,
@@ -1588,12 +1593,11 @@ class Evol4G4M4SF(Evol4G4M4S):
         '''La fonction à minimiser'''
         return -2*np.sum(np.log(self.likelihood_tot(self.stretchs,
                                                     self.stretchs_err,
-                                                    f,
-                                                    aa, bb,
+                                                    f, aa, bb,
                                                     mu_1, sigma_1,
+                                                    mu_4, sigma_4,
                                                     mu_2, sigma_2,
-                                                    mu_3, sigma_3,
-                                                    mu_4, sigma_4)))
+                                                    mu_3, sigma_3)))
 
 
 # =========================================================================== #
