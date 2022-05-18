@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import pickle
 import numpy as np
 import pandas as pd
@@ -8,7 +9,10 @@ import ipywidgets as ipw
 
 from variaIa import stretchevol
 
-pantheon_filename = '../../../Data/sne/ancillary_g10_n.FITRES'
+variaIapath = os.getenv('VARIAIAPATH')
+datapath = os.path.join(variaIapath, 'Data')
+
+pantheon_filename = datapath+'/sne/ancillary_g10_n.FITRES'
 with open(pantheon_filename) as f:
     for i, line in enumerate(f):
         if line.startswith('VARNAMES:'):
@@ -23,11 +27,12 @@ d = pd.read_csv(pantheon_filename, header=None,
                 delim_whitespace=True, comment='#')
 d = d.drop('VARNAMES:', axis=1)
 
-# d = pd.read_csv('../../../Data/sne/data_cheat.csv', sep=' ', index_col='CID')
-d_snf = pd.read_csv('../../../Data/sne/lssfr_paper_full_sntable.csv', sep=',')
+# d = pd.read_csv(datapath+'/sne/data_cheat.csv', sep=' ', index_col='CID')
+d_snf = pd.read_csv(datapath+'/sne/lssfr_paper_full_sntable.csv', sep=',')
+d_ztf = pd.read_csv(datapath+'/sne/ztf_full.csv')
 
-surveys = ['SNF', 'LOWZ', 'SDSS', 'PS1', 'SNLS', 'HST']
-nsurveys = ['nSNF', 'nLOWZ', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
+surveys = ['SNF', 'ZTF', 'LOWZ', 'SDSS', 'PS1', 'SNLS', 'HST']
+nsurveys = ['nSNF', 'nZTF', 'nLOWZ', 'nSDSS', 'nPS1', 'nSNLS', 'nHST']
 
 su = ipw.Dropdown(options=surveys + ['All'] + nsurveys,
                   description='Survey:',
@@ -39,16 +44,18 @@ cons = ipw.Checkbox(value=False,
 raw_df_snf = d_snf.loc[d_snf['name'].str.contains(
     'SNF|LSQ|PTF', na=False, regex=True)]
 surv = {'SNF':   raw_df_snf,  # [raw_df_snf['salt2.Color'] < 0.3],
+        'ZTF': d_ztf.loc[d_ztf['redshift'] > 0],
         'LOWZ': d[d['IDSURVEY'].isin([5, 61, 62, 63, 64, 65, 66])],
         'SDSS':  d[d['IDSURVEY'] == 1],
         'PS1':   d[d['IDSURVEY'] == 15],
         'SNLS':  d[d['IDSURVEY'] == 4],
         'HST':   d[d['IDSURVEY'].isin([101, 100, 106])]}
 
-with open('../../../Data/zmax/zmax_mlim', 'rb') as f:
+with open(datapath+'/zmax/zmax_mlim', 'rb') as f:
     z_max = pickle.load(f)
 z_max['HST'] = [10, 10]
 z_max['LOWZ'] = [10, 10]
+z_max['ZTF'] = [0.044, 0.055]
 
 zmax_cuts = dict()
 z_zcuts = dict()
@@ -85,31 +92,34 @@ def df_cons(cons):
     lssfr_err_u = list(surv['SNF']['lssfr.err_up'])
 
     if cons:
-        for survey in surveys[1:]:
+        zmax_cuts['ZTF'] = np.where(
+            surv['ZTF'].redshift.values < z_max['ZTF'][0])
+        for survey in surveys[2:]:
             zmax_cuts[survey] = np.where(
                 surv[survey].zCMB.values < z_max[survey][0])
-            z_zcuts[survey] = surv[survey].zCMB.values[zmax_cuts[survey]]
-            x1_zcuts[survey] = surv[survey].x1.values[zmax_cuts[survey]]
-            x1_err_zcuts[survey] = surv[survey].x1ERR.values[zmax_cuts[survey]]
-            c_zcuts[survey] = surv[survey].c.values[zmax_cuts[survey]]
-            c_err_zcuts[survey] = surv[survey].cERR.values[zmax_cuts[survey]]
-            M_zcuts[survey] =\
-                surv[survey].HOST_LOGMASS.values[zmax_cuts[survey]]
-            M_err_zcuts[survey] =\
-                surv[survey].HOST_LOGMASS_ERR.values[zmax_cuts[survey]]
     else:
-        for survey in surveys[1:]:
+        zmax_cuts['ZTF'] = np.where(
+            surv['ZTF'].redshift.values < z_max['ZTF'][-1])
+        for survey in surveys[2:]:
             zmax_cuts[survey] = np.where(
                 surv[survey].zCMB.values < z_max[survey][-1])
-            z_zcuts[survey] = surv[survey].zCMB.values[zmax_cuts[survey]]
-            x1_zcuts[survey] = surv[survey].x1.values[zmax_cuts[survey]]
-            x1_err_zcuts[survey] = surv[survey].x1ERR.values[zmax_cuts[survey]]
-            c_zcuts[survey] = surv[survey].c.values[zmax_cuts[survey]]
-            c_err_zcuts[survey] = surv[survey].cERR.values[zmax_cuts[survey]]
-            M_zcuts[survey] =\
-                surv[survey].HOST_LOGMASS.values[zmax_cuts[survey]]
-            M_err_zcuts[survey] =\
-                surv[survey].HOST_LOGMASS_ERR.values[zmax_cuts[survey]]
+    z_zcuts['ZTF'] = surv['ZTF'].redshift.values[zmax_cuts['ZTF']]
+    x1_zcuts['ZTF'] = surv['ZTF'].x1.values[zmax_cuts['ZTF']]
+    x1_err_zcuts['ZTF'] = surv['ZTF'].x1_err.values[zmax_cuts['ZTF']]
+    c_zcuts['ZTF'] = surv['ZTF'].c.values[zmax_cuts['ZTF']]
+    c_err_zcuts['ZTF'] = surv['ZTF'].c_err.values[zmax_cuts['ZTF']]
+    M_zcuts['ZTF'] = list([pd.NA for i in range(len(z_zcuts['ZTF']))])
+    M_err_zcuts['ZTF'] = list([pd.NA for i in range(len(z_zcuts['ZTF']))])
+    for survey in surveys[2:]:
+        z_zcuts[survey] = surv[survey].zCMB.values[zmax_cuts[survey]]
+        x1_zcuts[survey] = surv[survey].x1.values[zmax_cuts[survey]]
+        x1_err_zcuts[survey] = surv[survey].x1ERR.values[zmax_cuts[survey]]
+        c_zcuts[survey] = surv[survey].c.values[zmax_cuts[survey]]
+        c_err_zcuts[survey] = surv[survey].cERR.values[zmax_cuts[survey]]
+        M_zcuts[survey] =\
+            surv[survey].HOST_LOGMASS.values[zmax_cuts[survey]]
+        M_err_zcuts[survey] =\
+            surv[survey].HOST_LOGMASS_ERR.values[zmax_cuts[survey]]
 
     for survey in surveys:
         names += [survey for i in range(len(z_zcuts[survey]))]
@@ -160,7 +170,21 @@ lssfr = list(surv['SNF']['lssfr'])
 lssfr_err_d = list(surv['SNF']['lssfr.err_down'])
 lssfr_err_u = list(surv['SNF']['lssfr.err_up'])
 
-for survey in surveys[1:]:
+names += ['ZTF' for i in range(len(surv['ZTF'].redshift.values))]
+stretchs += list(surv['ZTF'].x1.values)
+stretchs_err += list(surv['ZTF'].x1_err.values)
+colors += list(surv['ZTF'].c.values)
+colors_err += list(surv['ZTF'].c_err.values)
+hostmass += [pd.NA for i in range(len(surv['ZTF']))]
+hostmass_err += [pd.NA for i in range(len(surv['ZTF']))]
+redshifts += list(surv['ZTF'].redshift.values)
+infor += list(stretchevol.Evol2G2M2S.delta(surv['ZTF'].redshift.values))
+py += list([0 for i in range(len(surv['ZTF']))])
+lssfr += list([0 for i in range(len(surv['ZTF']))])
+lssfr_err_d += list([0 for i in range(len(surv['ZTF']))])
+lssfr_err_u += list([0 for i in range(len(surv['ZTF']))])
+
+for survey in surveys[2:]:
     names += [survey for i in range(len(surv[survey].zCMB.values))]
     stretchs += list(surv[survey].x1.values)
     stretchs_err += list(surv[survey].x1ERR.values)
@@ -170,10 +194,10 @@ for survey in surveys[1:]:
     hostmass_err += list(surv[survey].HOST_LOGMASS_ERR.values)
     redshifts += list(surv[survey].zCMB.values)
     infor += list(stretchevol.Evol2G2M2S.delta(surv[survey].zCMB.values))
-    py += list([0 for i in range(len(surv[survey].zCMB.values))])
-    lssfr += list([0 for i in range(len(surv[survey].zCMB.values))])
-    lssfr_err_d += list([0 for i in range(len(surv[survey].zCMB.values))])
-    lssfr_err_u += list([0 for i in range(len(surv[survey].zCMB.values))])
+    py += list([0 for i in range(len(surv[survey]))])
+    lssfr += list([0 for i in range(len(surv[survey]))])
+    lssfr_err_d += list([0 for i in range(len(surv[survey]))])
+    lssfr_err_u += list([0 for i in range(len(surv[survey]))])
 
 df_full = pd.DataFrame({'survey': names,
                         'stretchs': stretchs,

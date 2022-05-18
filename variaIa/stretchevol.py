@@ -211,7 +211,7 @@ class Evol2G2M2S():
                                         **kwargs)
         else:
             self.m_tot = iminuit.Minuit(self.loglikelihood,
-                                        guess,
+                                        **guess,
                                         **kwargs)
 
         if limits is None:
@@ -748,7 +748,7 @@ class Evol2G2M2S():
     def show_model_evol(self, ax=None, zlin=None, flin=None,
                         TD=False, means=True,
                         elev=20, azim=260,
-                        cmap='bwr', label='auto',
+                        cmap='viridis_r', label='auto',
                         legend=False, leg_kwargs={},
                         fontsize='x-large', **kwargs):
         """ """

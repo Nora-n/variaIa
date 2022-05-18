@@ -527,8 +527,8 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
     y = [[] for i in range(loops)]
     p_zintp = [[] for i in range(loops)]
 
-    if survey == 'SNLS':
-        for i in range(loops):
+    for i in range(loops):
+        if survey == 'SNLS':
             # define start of histogram randomly between 0.06 and 0.12
             data_r_a = rdint(math.floor(rawdata[0]*100)/2,
                              math.floor(rawdata[0]*100))/100
@@ -536,69 +536,52 @@ def zmax_poisson(survey, rawdata, guess, loops, itsc):
             data_r_b = rdint(math.ceil(rawdata[-1]*10)*10,
                              (math.ceil(rawdata[-1]*10)
                               + math.floor(rawdata[0]*10)/2)*10)/100
-            # complete random data is start + normal data + end
-            data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
-            # define total number of bins
-            nb_bins_r = rdint(5, 20)
-            # define number of fits for each number of total bins
-            nb_fits_per_dist = 10
-            # get the counts and limits of bins
-            counts_r, bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r))
-            # define the list of lower and upper bins for ratefit to work
-            bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
-                                 for i in range(len(bord_r)-1)]).T
-
-            # create the according ratefitter
-            rate_r.set_data(counts_r, bins_r)
-            rate_r.set_model(base_r)
-
-            for k in range(nb_fits_per_dist):
-                # for each run with total number of bins, limit the fit to a
-                # random bin from 3 to max
-                rate_r.set_fitted_flag(rate_r._central_redshiftranges
-                                       < rate_r._central_redshiftranges
-                                       [rdint(3, nb_bins_r)])
-                rate_r.fit(a_guess=guess)
-
-                # fill i loop with positions of bins, k times
-                x[i].append(rate_r._central_redshiftranges)
-                # fill i loop with values of cdf, k times
-                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
-                                                      rate_r.redshift_ranges))
-                # define the z list for interpolating
-                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 10000)
-                # fill i loop with interpolation for saving
-                p_zintp[i].append(interpolate.interp1d(
-                                  x[i][k], y[i][k], kind='linear')(z_intp))
-    else:
-        for i in range(loops):
+        elif survey == 'ZTF':
+            data_r_a = rdint(0.0000*10000, 0.0001*10000)/10000
+            data_r_b = rdint(0.20*100, 0.22*100)/100
+        else:
             data_r_a = rdint(math.floor(rawdata[0]*1000)/2,
                              math.floor(rawdata[0]*1000))/1000
             data_r_b = rdint(math.ceil(rawdata[-1]*100)*10,
                              (math.ceil(rawdata[-1]*100)
                               + math.floor(rawdata[0]*100)/2)*10)/1000
-            data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
-            nb_bins_r = rdint(5, 20)
-            nb_fits_per_dist = 10
-            counts_r, bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r))
-            bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
-                                 for i in range(len(bord_r)-1)]).T
+        # complete random data is start + normal data + end
+        data_r = np.append(data_r_a, np.append(rawdata, data_r_b))
+        # define total number of bins
+        nb_bins_r = rdint(5, 20)
+        # define number of fits for each number of total bins
+        nb_fits_per_dist = 10
+        # get the counts and limits of bins
+        counts_r, bord_r = np.asarray(np.histogram(data_r, bins=nb_bins_r))
+        # define the list of lower and upper bins for ratefit to work
+        bins_r = np.asarray([[bord_r[i], bord_r[i+1]]
+                             for i in range(len(bord_r)-1)]).T
 
-            rate_r.set_data(counts_r, bins_r)
-            rate_r.set_model(base_r)
+        # create the according ratefitter
+        rate_r.set_data(counts_r, bins_r)
+        rate_r.set_model(base_r)
 
-            for k in range(nb_fits_per_dist):
-                rate_r.set_fitted_flag(rate_r._central_redshiftranges
-                                       < rate_r._central_redshiftranges
-                                       [rdint(3, nb_bins_r)])
-                rate_r.fit(a_guess=guess)
+        for k in range(nb_fits_per_dist):
+            # for each run with total number of bins, limit the fit to a
+            # random bin from 3 to max
+            rate_r.set_fitted_flag(rate_r._central_redshiftranges
+                                   < rate_r._central_redshiftranges
+                                   [rdint(3, nb_bins_r)])
+            rate_r.fit(a_guess=guess)
 
-                x[i].append(rate_r._central_redshiftranges)
-                y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
-                                                      rate_r.redshift_ranges))
-                z_intp = np.linspace(x[i][k][0], x[i][k][-1], 10000)
+            # fill i loop with positions of bins, k times
+            x[i].append(rate_r._central_redshiftranges)
+            # fill i loop with values of cdf, k times
+            y[i].append(rate_r.model.get_cumuprob(rate_r.counts,
+                                                  rate_r.redshift_ranges))
+            # define the z list for interpolating
+            z_intp = np.linspace(x[i][k][0], x[i][k][-1], 10000)
+            # fill i loop with interpolation for saving
+            if not rate_r.minuit.valid:
+                pass
+            else:
                 p_zintp[i].append(interpolate.interp1d(
-                                  x[i][k], y[i][k], kind='linear')(z_intp))
+                    x[i][k], y[i][k], kind='linear')(z_intp))
 
     # compute the median of all interpolated curves
     p_med = np.median(np.median(p_zintp, axis=1), axis=0)
@@ -636,7 +619,8 @@ def zmax_pshow(z_lins, meds, stds, z_max, itsc,
     surveys = list(z_lins.keys())
 
     smap = plt.cm.get_cmap('cividis')
-    colors = {'SDSS': smap(0.1),
+    colors = {'ZTF': plt.cm.viridis(0.1),
+              'SDSS': smap(0.1),
               'PS1': smap(0.5),
               'SNLS': smap(0.8)}
 
