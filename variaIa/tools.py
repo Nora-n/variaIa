@@ -108,8 +108,8 @@ def df_cons(cons):
     x1_err_zcuts['ZTF'] = surv['ZTF'].x1_err.values[zmax_cuts['ZTF']]
     c_zcuts['ZTF'] = surv['ZTF'].c.values[zmax_cuts['ZTF']]
     c_err_zcuts['ZTF'] = surv['ZTF'].c_err.values[zmax_cuts['ZTF']]
-    M_zcuts['ZTF'] = list([pd.NA for i in range(len(z_zcuts['ZTF']))])
-    M_err_zcuts['ZTF'] = list([pd.NA for i in range(len(z_zcuts['ZTF']))])
+    M_zcuts['ZTF'] = list([0 for i in range(len(z_zcuts['ZTF']))])
+    M_err_zcuts['ZTF'] = list([0 for i in range(len(z_zcuts['ZTF']))])
     for survey in surveys[2:]:
         z_zcuts[survey] = surv[survey].zCMB.values[zmax_cuts[survey]]
         x1_zcuts[survey] = surv[survey].x1.values[zmax_cuts[survey]]
@@ -175,8 +175,8 @@ stretchs += list(surv['ZTF'].x1.values)
 stretchs_err += list(surv['ZTF'].x1_err.values)
 colors += list(surv['ZTF'].c.values)
 colors_err += list(surv['ZTF'].c_err.values)
-hostmass += [pd.NA for i in range(len(surv['ZTF']))]
-hostmass_err += [pd.NA for i in range(len(surv['ZTF']))]
+hostmass += [0 for i in range(len(surv['ZTF']))]
+hostmass_err += [0 for i in range(len(surv['ZTF']))]
 redshifts += list(surv['ZTF'].redshift.values)
 infor += list(stretchevol.Evol2G2M2S.delta(surv['ZTF'].redshift.values))
 py += list([0 for i in range(len(surv['ZTF']))])

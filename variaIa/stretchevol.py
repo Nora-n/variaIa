@@ -413,12 +413,12 @@ class Evol2G2M2S():
             if show_text:
                 ax.text(-14.1, 3, txt_old,
                         ha='left', va='top',
-                        fontsize='x-large',
+                        fontsize=fontsize,
                         color=plt.cm.viridis(1.00))
 
                 ax.text(-9.2, 3, txt_yng,
                         ha='right', va='top',
-                        fontsize='x-large',
+                        fontsize=fontsize,
                         color=plt.cm.viridis(0.05, 0.5))
 
                 ax.set_xlim(-14.2, -9.05)
@@ -463,12 +463,12 @@ class Evol2G2M2S():
                 if show_text:
                     axh.text(-1.30, 3, txt_old,
                              ha='right', va='top',
-                             fontsize='x-large',
+                             fontsize=fontsize,
                              color=plt.cm.viridis(1.00))
 
                     axh.text(1.30, 3, txt_yng,
                              ha='left', va='top',
-                             fontsize='x-large',
+                             fontsize=fontsize,
                              color=plt.cm.viridis(0.05, 0.5))
 
         ax.set_xlabel(r'log(LsSFR)', fontsize=fontsize)
@@ -1409,7 +1409,7 @@ class Evol3G3M3S(Evol3G2M2S):
 
 
 class Evol3G3M3SF(Evol3G3M3S):
-    r'''Base$+(\mu_1^{\mathrm{O}}, \sigma_1^{\mathrm{O}})$+const'''
+    r'''Base$+(\mu_1^{\rm O}, \sigma_1^{\rm O})$+const'''
 
     # =================================================================== #
     #                              Parameters                             #
