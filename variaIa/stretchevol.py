@@ -374,7 +374,7 @@ class Evol2G2M2S():
         # ----------------------------------------------------------- #
 
     def scatter(self, ax=None, axh=None,
-                model=True, show_text=True,
+                model=True, show_text=True, hist=False,
                 txt_old='Vieux', txt_yng='Jeune',
                 show_leg=True, lssfr=True, shift=lssfr_med,
                 mod_lw=1, lw=1, elw=1, ealpha=1, s=80,
@@ -424,6 +424,45 @@ class Evol2G2M2S():
                 ax.set_xlim(-14.2, -9.05)
                 ax.set_ylim(-3.2, 3.2)
 
+        if hist:
+            if axh is None:
+                axh = fig.add_axes([1.1, 0.12, 0.2, 0.8])
+            else:
+                pass
+            prop = dict(orientation='horizontal',
+                        histtype='step',
+                        fill=True,
+                        range=(-3, 3), bins=14,
+                        lw=1)
+
+            amp = (prop['range'][1] - prop['range'][0])/prop['bins']
+
+            axh.hist(self.stretchs, weights=self.py,
+                     facecolor=plt.cm.viridis(0.05, 0.5),
+                     edgecolor='0.7',
+                     **prop)
+            axh.hist(self.stretchs, weights=(self.py-1),
+                     facecolor=plt.cm.viridis(0.95, 0.5),
+                     edgecolor="0.7",
+                     **prop)
+
+            axh.set_ylim(*ax.get_ylim())
+            axh.set_xlabel('')
+            axh.set_ylabel('')
+            axh.set_yticks([])
+            axh.set_xticks([])
+            axh.set_frame_on(False)
+
+            if show_text:
+                axh.text(-1.30, 3, txt_old,
+                         ha='right', va='top',
+                         fontsize=fontsize,
+                         color=plt.cm.viridis(1.00))
+
+                axh.text(1.30, 3, txt_yng,
+                         ha='left', va='top',
+                         fontsize=fontsize,
+                         color=plt.cm.viridis(0.05, 0.5))
         if model:
             if axh is None:
                 self.show_model(ax=ax, shift=lssfr_med,
@@ -438,38 +477,12 @@ class Evol2G2M2S():
 
                 amp = (prop['range'][1] - prop['range'][0])/prop['bins']
 
-                axh.hist(self.stretchs, weights=self.py,
-                         facecolor=plt.cm.viridis(0.05, 0.5),
-                         edgecolor='0.7',
-                         **prop)
-                axh.hist(self.stretchs, weights=(self.py-1),
-                         facecolor=plt.cm.viridis(0.95, 0.5),
-                         edgecolor="0.7",
-                         **prop)
-
                 self.show_model(ax=axh, rotate=True,
                                 o_factor=-amp*np.sum(1-self.py),
                                 y_factor=amp*np.sum(self.py),
                                 facecolor_y='none', facecolor_o='none',
                                 legend=False,
                                 lw=1, zorder=8)
-                axh.set_ylim(*ax.get_ylim())
-                axh.set_xlabel('')
-                axh.set_ylabel('')
-                axh.set_yticks([])
-                axh.set_xticks([])
-                axh.set_frame_on(False)
-
-                if show_text:
-                    axh.text(-1.30, 3, txt_old,
-                             ha='right', va='top',
-                             fontsize=fontsize,
-                             color=plt.cm.viridis(1.00))
-
-                    axh.text(1.30, 3, txt_yng,
-                             ha='left', va='top',
-                             fontsize=fontsize,
-                             color=plt.cm.viridis(0.05, 0.5))
 
         ax.set_xlabel(r'log(LsSFR)', fontsize=fontsize)
         ax.set_ylabel(r'$x_1$', fontsize=fontsize)
